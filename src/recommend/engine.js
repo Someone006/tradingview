@@ -102,6 +102,83 @@ export function recommend(ctx) {
         `Your domain was cited in only ${Math.round((vis.citationRate ?? 0) * 100)}% of answers.`,
         vis.citationRate ?? 0), ctx));
     }
+    // Named often but rarely endorsed: an exposure problem is not the same
+    // as a persuasion problem, and the remedies are different.
+    if ((vis.mentionRate ?? 0) >= 0.3 && (vis.influenceRatio ?? 0) < 0.35) {
+      out.push({
+        id: 'convert-mentions-to-recommendations',
+        title: 'Convert mentions into recommendations',
+        why: `You are named in ${Math.round((vis.mentionRate ?? 0) * 100)}% of answers, but only `
+          + `${Math.round((vis.influenceRatio ?? 0) * 100)}% of those mentions are an actual `
+          + 'recommendation - the rest list you without endorsing you. This is a persuasion '
+          + 'problem, not an exposure problem: the engines know you exist and are declining to '
+          + 'put their weight behind you, usually because nothing they can read gives them a '
+          + 'defensible reason to.',
+        how: 'Publish the evidence an assistant needs to justify picking you: specific outcomes '
+          + 'with numbers, named credentials and licences, guarantees and response times, and '
+          + 'third-party proof it can corroborate. Replace "trusted by many" with a figure. '
+          + 'An engine will only recommend what it can defend from a source.',
+        severity: 'high',
+        impact: 4,
+        effort: 3,
+        priority: 0,
+        pillar: 'content',
+        evidence: `Mentioned ${Math.round((vis.mentionRate ?? 0) * 100)}%, `
+          + `recommended ${Math.round((vis.recommendationRate ?? 0) * 100)}%`,
+      });
+    }
+
+    // Being actively steered away from is a different, worse problem.
+    if ((vis.dismissedCount ?? 0) > 0) {
+      out.push({
+        id: 'address-dismissals',
+        title: 'Answers are actively steering buyers away from you',
+        why: `In ${vis.dismissedCount} answer(s) the assistant named you in order to point the `
+          + 'buyer elsewhere - as the thing to move away from, or with an explicit caveat. That '
+          + 'is worse than absence: the buyer now has a reason not to choose you, sourced from '
+          + 'something publicly readable.',
+        how: 'Find the source. Check recent reviews, community threads and comparison pages for '
+          + 'the specific complaint being echoed, then fix the underlying issue and publish the '
+          + 'correction where the engine can read it. Dated, specific public evidence that the '
+          + 'problem is resolved is the only thing that displaces a stale criticism.',
+        severity: 'critical',
+        impact: 5,
+        effort: 3,
+        priority: 0,
+        pillar: 'authority',
+        evidence: `${vis.dismissedCount} dismissive mention(s)`,
+      });
+    }
+
+    // The off-site half nobody audits.
+    const surf = vis.surfaces || {};
+    if ((surf.totalCitations || 0) >= 4 && (surf.offSiteShare ?? 0) >= 0.7) {
+      const top = (surf.targets || []).slice(0, 5);
+      out.push({
+        id: 'work-the-off-site-surfaces',
+        title: 'Most of the answer is sourced from pages you do not own',
+        why: `${Math.round((surf.offSiteShare ?? 0) * 100)}% of the sources these engines drew on `
+          + 'sit on sites you do not control. You can hold a flawless website and still lose the '
+          + 'answer, because the argument about your category is being had somewhere else. Most '
+          + 'audits stop at your own pages and never surface this.',
+        how: top.length
+          ? 'Work the ranked list below. These surfaces are not interchangeable - a forum thread '
+            + 'and a directory listing need opposite approaches, so each carries its own play.'
+          : 'Identify the review platforms and community spaces your buyers use, and earn a '
+            + 'genuine presence on each.',
+        snippet: top.length
+          ? top.map((t) => `${String(t.count).padStart(3)}x  ${t.domain}\n`
+            + `       ${t.label}: ${t.playbook}`).join('\n\n')
+          : undefined,
+        severity: 'high',
+        impact: 5,
+        effort: 4,
+        priority: 0,
+        pillar: 'authority',
+        evidence: `${Math.round((surf.offSiteShare ?? 0) * 100)}% of citations are off-site`,
+      });
+    }
+
     const branded = (vis.byIntent || []).find((i) => i.intent === 'branded');
     if (branded && branded.rate < 0.8) {
       out.push({

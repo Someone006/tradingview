@@ -9,6 +9,7 @@
 import { findMentions, rankEntities, clamp } from '../util/text.js';
 import { hostOf, sameHost } from '../util/http.js';
 import { INTENT_LABELS } from '../prompts/generator.js';
+import { analyseSurfaces } from './surfaces.js';
 
 /**
  * Score a single answer into a PromptOutcome.
@@ -52,21 +53,41 @@ export function scoreAnswer(prompt, answer, brand) {
 }
 
 /**
+ * What being named is worth, by the role the mention plays. Presence alone is
+ * not the outcome: an assistant telling a buyer to avoid you is worse for the
+ * business than not appearing at all, and must never score like an endorsement.
+ */
+export const ROLE_WEIGHTS = {
+  recommended: 1.0,
+  listed: 0.7,
+  referenced: 0.45,
+  dismissed: 0.0,
+};
+
+/**
  * Per-answer visibility value in 0..1.
  *
- * Presence is most of the score, but position and sentiment matter: being named
- * first with praise is a materially different commercial outcome to being
- * listed fourth with a caveat. A citation of the brand's own domain is the
- * strongest signal available, because it means the engine sent traffic.
+ * Presence opens the score, but the role the mention plays gates it, and
+ * position and sentiment shade it: being recommended first is a materially
+ * different commercial outcome to being listed fourth or named as the thing to
+ * migrate away from. A citation of the brand's own domain is the strongest
+ * single signal, because it means the engine actually sent traffic.
  * @param {import('../types.js').PromptOutcome} o
  */
 export function outcomeScore(o) {
   if (o.status !== 'answered') return 0;
   if (!o.brand.mentioned) return 0;
+
+  const role = o.brand.role || 'referenced';
+  const roleWeight = ROLE_WEIGHTS[role] ?? 0.45;
+  // Being told to avoid you is a loss, not a small win.
+  if (roleWeight === 0) return 0;
+
   const positionScore = o.brand.rank > 0 ? 1 / (1 + 0.35 * (o.brand.rank - 1)) : 0.5;
   const sentimentBonus = clamp(o.brand.sentiment, -0.5, 0.5) * 0.2;
   const citationBonus = o.ownDomainCited ? 0.15 : 0;
-  return clamp(0.55 * 1 + 0.30 * positionScore + sentimentBonus + citationBonus, 0, 1);
+  const base = 0.55 * roleWeight + 0.30 * positionScore + sentimentBonus + citationBonus;
+  return clamp(base, 0, 1);
 }
 
 /**
@@ -121,6 +142,16 @@ export function summarise(outcomes, brand, opts = {}) {
 
   const mentionCount = answered.filter((o) => o.brand.mentioned).length;
   const mentionRate = answered.length ? mentionCount / answered.length : 0;
+
+  // The distinction the category currently misses: presence versus influence.
+  const recommendedCount = answered.filter((o) => o.brand.role === 'recommended').length;
+  const dismissedCount = answered.filter((o) => o.brand.role === 'dismissed').length;
+  const recommendationRate = answered.length ? recommendedCount / answered.length : 0;
+  /** @type {Record<string, number>} */
+  const roles = { recommended: 0, listed: 0, referenced: 0, dismissed: 0 };
+  for (const o of answered) {
+    if (o.brand.mentioned && roles[o.brand.role] !== undefined) roles[o.brand.role]++;
+  }
   const citedCount = answered.filter((o) => o.ownDomainCited).length;
   const citationRate = answered.length ? citedCount / answered.length : 0;
 
@@ -145,6 +176,12 @@ export function summarise(outcomes, brand, opts = {}) {
     stability,
     contested: stability.filter((s) => s.stability === 'contested').length,
     mentionRate: round(mentionRate),
+    recommendationRate: round(recommendationRate),
+    dismissedCount,
+    roles,
+    // How much of your visibility is actual endorsement rather than a name in
+    // a list. Low conversion means the work is persuasion, not exposure.
+    influenceRatio: mentionCount ? round(recommendedCount / mentionCount) : 0,
     citationRate: round(citationRate),
     avgRank: round(avgRank, 2),
     avgSentiment: round(avgSentiment, 2),
@@ -155,6 +192,7 @@ export function summarise(outcomes, brand, opts = {}) {
     byIntent: byIntent(answered),
     byEngine: byEngine(answered),
     citationDomains: citationDomains(answered, brand),
+    surfaces: analyseSurfaces(answered, brand),
     gaps: findGaps(answered),
     wins: findWins(answered),
   };

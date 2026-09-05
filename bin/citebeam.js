@@ -118,6 +118,19 @@ function printSummary(report) {
       log.info(`   ${String(PILLAR_LABELS[k] || k).padEnd(20)} ${bar(v, 16)}  ${pct(v)}`);
     }
   }
+  if (!vis.skipped && vis.promptsAnswered) {
+    log.blank();
+    log.info(c.bold('  Presence vs influence'));
+    log.info(`   named       ${bar(vis.mentionRate, 16)}  ${pct(vis.mentionRate)}`);
+    log.info(`   recommended ${bar(vis.recommendationRate, 16)}  ${pct(vis.recommendationRate)}`);
+    if (vis.dismissedCount) {
+      log.info(c.red(`   dismissed in ${vis.dismissedCount} answer(s) - buyers steered away`));
+    }
+    const surf = vis.surfaces || {};
+    if (surf.totalCitations) {
+      log.info(c.dim(`   ${pct(surf.offSiteShare)} of cited sources are sites you do not own`));
+    }
+  }
   if (!vis.skipped && (vis.shareOfVoice || []).length) {
     log.blank();
     log.info(c.bold('  Answer share'));

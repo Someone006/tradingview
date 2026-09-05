@@ -33,6 +33,13 @@ CiteBeam is the other shape of that product:
 | Branding | Vendor's | Yours — white-label by default |
 | Without API keys | Nothing works | Full site audit still runs |
 | Data | Vendor's servers | Your disk |
+| Mentions | Counted the same | **Classified** — recommended vs listed vs dismissed |
+| Off-site sources | Mostly ignored | **Analysed** — by surface type, with a play for each |
+
+Two of those rows come from what the category is openly criticised for. Published
+comparisons note that most tools "measure citation but not absorption, so they report
+presence without influence", and that they "concentrate on owned pages, missing the
+third-party surfaces where citations actually land." Both are addressed below.
 
 ---
 
@@ -60,11 +67,26 @@ measures whether you're named, how early, how favourably, and whether your domai
 Reports answer share against your competitors, and the exact prompts where a competitor is
 recommended and you are not.
 
-**3. A prioritised fix plan.**
+**3. Presence versus influence.**
+Being named is not a commercial outcome. Every mention is classified by what it actually
+does — *recommends* you, *lists* you, passingly *references* you, or *dismisses* you by
+naming you as the thing to move away from. A dismissal scores **zero**, not partial credit:
+an assistant telling a buyer to avoid you is worse than not appearing. The headline is the
+gap between the two rates — "named in 50% of answers, recommended in 11%" — which separates
+an exposure problem from a persuasion problem, because they have different fixes.
+
+**4. Where the answer actually comes from.**
+Citations are classified by surface: community, review platforms, editorial, reference,
+social, marketplaces, competitor-owned, or yours. You get the share of the answer space you
+do **not** control, a ranked outreach list of the sources actually cited in your category,
+and a distinct play for each — a forum thread and a directory listing need opposite
+approaches, and treating them alike is how outreach budgets get wasted.
+
+**5. A prioritised fix plan.**
 Every failing check maps to a specific action with copy-paste code, ordered by impact against
 effort and split into a 30/60/90-day roadmap. This is the part clients pay for.
 
-**4. Client-ready reports.**
+**6. Client-ready reports.**
 Self-contained HTML (opens offline, prints to PDF), Markdown, JSON, and CSV. Your agency name,
 logo and accent colour.
 

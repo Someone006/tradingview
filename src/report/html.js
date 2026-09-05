@@ -95,6 +95,7 @@ function cover(report, brand, composite, date, b) {
       answer engines with how often the brand is named in their answers.</p>
       <dl class="hero-stats">
         <div><dt>Named in answers</dt><dd>${pct(report.visibility?.mentionRate)}</dd></div>
+        <div><dt>Actually recommended</dt><dd>${pct(report.visibility?.recommendationRate)}</dd></div>
         <div><dt>Own site cited</dt><dd>${pct(report.visibility?.citationRate)}</dd></div>
         <div><dt>Site readiness</dt><dd>${pct(report.readiness?.overall)}</dd></div>
       </dl>
@@ -205,6 +206,32 @@ export function summaryPoints(report) {
         detail: `On prompts such as "${gaps[0].prompt}", the assistant named `
           + `${gaps[0].winners.slice(0, 2).join(' and ')} and did not mention you. `
           + 'Each of these is a buyer conversation happening without you in it.',
+      });
+    }
+    if (vis.dismissedCount > 0) {
+      out.push({
+        color: S.critical,
+        headline: `Answers actively steered buyers away from you ${vis.dismissedCount} time(s).`,
+        detail: 'You were named in order to point the buyer elsewhere. That is worse than absence: '
+          + 'the buyer leaves with a reason not to choose you, drawn from something publicly readable.',
+      });
+    } else if ((vis.mentionRate ?? 0) >= 0.3 && (vis.influenceRatio ?? 0) < 0.35) {
+      out.push({
+        color: S.warning,
+        headline: 'You get named, but you rarely get recommended.',
+        detail: `Assistants mentioned you in ${pct(vis.mentionRate)} of answers, but only `
+          + `${pct(vis.influenceRatio)} of those mentions were an actual recommendation. The engines `
+          + 'know you exist and are declining to back you — that is a persuasion problem, not an '
+          + 'exposure problem, and it has a different fix.',
+      });
+    }
+    const surf = vis.surfaces || {};
+    if ((surf.totalCitations || 0) >= 4 && (surf.offSiteShare ?? 0) >= 0.7) {
+      out.push({
+        color: S.warning,
+        headline: `${pct(surf.offSiteShare)} of the sources are pages you don't control.`,
+        detail: 'Fixing your website alone cannot win these answers. The report lists exactly which '
+          + 'third-party sources the engines drew on, and what works on each.',
       });
     }
     if ((vis.citationRate ?? 0) < 0.2) {
@@ -399,10 +426,45 @@ function stabilitySection(vis) {
 function citationSection(vis) {
   const rows = (vis.citationDomains || []).slice(0, 15);
   if (!rows.length) return '';
+  const surf = vis.surfaces || {};
+  const offSite = surf.offSiteShare ?? 0;
   return `<section class="sec">
   <h2>Where the answers come from</h2>
   <p class="lede">The sources these assistants actually pulled from when answering questions in your
-  category. This is your outreach target list, in priority order.</p>
+  category.${surf.totalCitations ? ` <strong>${pct(offSite)} of them sit on sites you do not own.</strong>
+  You can hold a flawless website and still lose the answer, because the argument about your
+  category is being had somewhere else.` : ''}</p>
+  ${(surf.breakdown || []).length ? `
+  <h3>By type of source</h3>
+  <table class="bars">
+    <caption class="sr-only">Share of citations by surface type</caption>
+    <thead><tr><th scope="col">Surface</th><th scope="col">Share of sources</th><th scope="col" class="num">Share</th><th scope="col" class="num">Cites</th></tr></thead>
+    <tbody>
+    ${surf.breakdown.map((b) => `<tr>
+      <th scope="row">${esc(b.label)}</th>
+      <td class="barcell"><span class="track"><span class="fill" data-zero="${b.share > 0 ? 1 : 0}"
+        style="width:${(b.share * 100).toFixed(1)}%;background:${b.surface === 'owned' ? PALETTE.brand : PALETTE.context}"></span></span></td>
+      <td class="num">${pct(b.share)}</td>
+      <td class="num">${b.count}</td>
+    </tr>`).join('\n')}
+    </tbody>
+  </table>` : ''}
+  ${(surf.targets || []).length ? `
+  <h3>Where to go and earn a mention</h3>
+  <p class="lede">Ranked by how often each source was actually cited. These surfaces are not
+  interchangeable &mdash; a forum thread and a directory listing need opposite approaches, so each
+  carries its own play.</p>
+  <table class="data">
+    <thead><tr><th scope="col">Source</th><th scope="col" class="num">Cited</th><th scope="col">What works here</th></tr></thead>
+    <tbody>
+    ${surf.targets.map((t) => `<tr>
+      <td><code>${esc(t.domain)}</code><br><span class="ev">${esc(t.label)}</span></td>
+      <td class="num">${t.count}</td>
+      <td class="dim">${esc(t.playbook)}</td>
+    </tr>`).join('\n')}
+    </tbody>
+  </table>` : ''}
+  <h3>Every source cited</h3>
   <table class="data">
     <thead><tr><th scope="col">Source</th><th scope="col" class="num">Times cited</th><th scope="col">Note</th></tr></thead>
     <tbody>
@@ -543,7 +605,10 @@ function methodology(report) {
     problem-led and branded) and put to
     ${esc((report.meta.engineLabels || []).join(', ') || 'no engines')}.
     Each question was asked ${vis.samples > 1 ? `<strong>${vis.samples} times</strong> and the results pooled` : 'once'},
-    and every answer was scanned for the brand and its competitors. The visibility score weights presence
+    and every answer was scanned for the brand and its competitors. Each mention is classified by
+    what it actually does &mdash; recommends, lists, passingly names, or steers the buyer away &mdash;
+    because being named is not by itself a commercial outcome, and a dismissal scores zero rather
+    than counting as presence. The visibility score weights presence
     most heavily, then position in the answer, sentiment of the surrounding sentence, and whether the
     brand's own domain was cited.
     ${vis.promptsFailed ? `${vis.promptsFailed} call(s) failed and were excluded.` : ''}</p>

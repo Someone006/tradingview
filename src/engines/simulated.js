@@ -101,8 +101,21 @@ function compose(prompt, brand, ranked, seed) {
     'Frequently mentioned in community threads, with mixed but mostly positive feedback.',
   ];
 
+  // Real answers mix outright endorsement with neutral listing, and the role
+  // classifier is measured on exactly that distinction - so the fixture has to
+  // produce the full range or it under-exercises what it is standing in for.
+  const endorsements = [
+    'the best choice for most people here',
+    'the one I would recommend first',
+    'my top pick in this category',
+  ];
   const lines = ranked.map((n, i) => {
     const b = blurbs[Math.floor(seed(`blurb${i}`) * blurbs.length)];
+    const endorsed = i === 0 && seed('endorse') < 0.55;
+    if (endorsed) {
+      const e = endorsements[Math.floor(seed('etext') * endorsements.length)];
+      return `${i + 1}. **${n}** - ${e}. ${b}`;
+    }
     return `${i + 1}. **${n}** - ${b}`;
   });
 

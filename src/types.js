@@ -69,7 +69,15 @@
  * @property {number} rank            1-based ordinal among all detected entities, 0 if absent.
  * @property {number} count
  * @property {number} sentiment       -1..1 heuristic sentiment of surrounding context.
+ * @property {MentionRole} role       What the mention does for the entity.
+ * @property {string} [roleSentence]  The sentence the role was read from.
  * @property {string[]} snippets
+ */
+
+/**
+ * Whether a mention endorses, merely lists, passingly names, or steers away
+ * from the entity. Presence alone is not a commercial outcome.
+ * @typedef {'recommended'|'listed'|'referenced'|'dismissed'} MentionRole
  */
 
 /**

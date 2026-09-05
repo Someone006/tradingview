@@ -127,3 +127,67 @@ test('samples are clamped to a sane range', async () => {
   const r = await runAudit(brand, { skipReadiness: true, promptCount: 2, samples: 99 });
   assert.ok(r.outcomes.length <= 20, 'runaway sample counts cannot blow up cost');
 });
+
+test('a dismissal never scores like an endorsement', () => {
+  const rec = scoreAnswer(prompt, answer(
+    'Northwind Plumbing is the best choice for emergency work.'), brand);
+  const listed = scoreAnswer(prompt, answer(
+    'Options include RiverCity Plumbers and Northwind Plumbing.'), brand);
+  const dismissed = scoreAnswer(prompt, answer(
+    'I would avoid Northwind Plumbing; go with RiverCity Plumbers.'), brand);
+
+  assert.equal(rec.brand.role, 'recommended');
+  assert.equal(listed.brand.role, 'listed');
+  assert.equal(dismissed.brand.role, 'dismissed');
+
+  assert.ok(outcomeScore(rec) > outcomeScore(listed));
+  assert.equal(outcomeScore(dismissed), 0,
+    'being steered away from is a loss, not partial credit');
+  // It is still recorded as a mention - it happened, it just is not a win.
+  assert.equal(dismissed.brand.mentioned, true);
+});
+
+test('summary separates presence from influence', () => {
+  const outcomes = [
+    scoreAnswer(prompt, answer('Northwind Plumbing is the best choice here.'), brand),
+    scoreAnswer(prompt, answer('Options include Northwind Plumbing and others.'), brand),
+    scoreAnswer(prompt, answer('Avoid Northwind Plumbing.'), brand),
+    scoreAnswer(prompt, answer('RiverCity Plumbers is the one to call.'), brand),
+  ];
+  const s = summarise(outcomes, brand);
+  assert.equal(s.mentionRate, 0.75, 'named in three of four answers');
+  assert.equal(s.recommendationRate, 0.25, 'genuinely recommended in only one');
+  assert.equal(s.dismissedCount, 1);
+  assert.ok(s.influenceRatio < 0.5, 'most mentions are not endorsements');
+});
+
+test('citation surfaces are classified and off-site share computed', async () => {
+  const { analyseSurfaces, classifyHost } = await import('../src/analysis/surfaces.js');
+  assert.equal(classifyHost('reddit.com', 'acme.com', []), 'community');
+  assert.equal(classifyHost('www.g2.com', 'acme.com', []), 'review');
+  assert.equal(classifyHost('acme.com', 'acme.com', []), 'owned');
+  assert.equal(classifyHost('rival.com', 'acme.com', ['rival.com']), 'competitor');
+  assert.equal(classifyHost('en.wikipedia.org', 'acme.com', []), 'reference');
+
+  const outcomes = [
+    { status: 'answered', citations: ['https://reddit.com/r/a', 'https://acme.com/'] },
+    { status: 'answered', citations: ['https://reddit.com/r/b', 'https://g2.com/x'] },
+  ];
+  const r = analyseSurfaces(outcomes, { domain: 'acme.com', competitors: [] });
+  assert.equal(r.totalCitations, 4);
+  assert.equal(r.ownedShare, 0.25);
+  assert.equal(r.offSiteShare, 0.75);
+  assert.ok(r.targets.every((t) => t.surface !== 'owned' && t.surface !== 'competitor'),
+    'you cannot do outreach on your own site or a competitor\'s');
+  assert.equal(r.targets[0].domain, 'reddit.com', 'most-cited target ranks first');
+  assert.ok(r.targets[0].playbook.length > 20, 'each target carries its own play');
+});
+
+test('repeated pages on one domain count as one source per answer', async () => {
+  const { analyseSurfaces } = await import('../src/analysis/surfaces.js');
+  const r = analyseSurfaces([{
+    status: 'answered',
+    citations: ['https://reddit.com/a', 'https://reddit.com/b', 'https://reddit.com/c'],
+  }], { domain: 'acme.com', competitors: [] });
+  assert.equal(r.totalCitations, 1, 'one chatty domain cannot dominate the picture');
+});

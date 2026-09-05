@@ -100,6 +100,35 @@ a red alert that the engines do not resolve you as an entity at all.
 The set is balanced round-robin across intents so a trimmed run keeps coverage rather than
 filling up with one class. Operator-supplied prompts are **pinned** and never trimmed.
 
+### Mention role
+
+Each mention is classified from the sentence that contains it:
+
+| Role | Meaning | Weight |
+|---|---|---|
+| `recommended` | Endorsement language, or the top of a ranked shortlist | 1.00 |
+| `listed` | Named in a shortlist without endorsement | 0.70 |
+| `referenced` | Named in passing | 0.45 |
+| `dismissed` | Named to steer the buyer away ("avoid", "alternatives to X", "unlike X") | **0.00** |
+
+Dismissal is tested before endorsement, because "not the best choice" contains "best". A
+dismissed mention scores zero and terminates the calculation: presence bought at the cost of
+a reason not to choose you is not visibility.
+
+`recommendationRate` and `influenceRatio` (what share of your mentions are actual
+endorsements) are reported alongside `mentionRate` so exposure and persuasion problems are
+distinguishable.
+
+### Citation surfaces
+
+Cited domains are classified into: owned, competitor, community, review, editorial,
+reference, social, marketplace, other. The report gives the share of sources that are
+off-site, plus a ranked outreach list excluding surfaces you cannot publish on (your own
+site, competitors'). Each surface carries its own playbook.
+
+One credit per domain per answer: an answer citing five pages of one site counts once, so a
+single chatty domain cannot dominate the analysis.
+
 ### Repeat sampling
 
 `--samples n` asks every prompt n times per engine and pools the results. This changes what the

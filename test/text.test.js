@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { findMentions, rankEntities, extractUrls, nameVariants, isAnswerCapsule, sentenceAt } from '../src/util/text.js';
+import { findMentions, rankEntities, extractUrls, nameVariants, isAnswerCapsule, sentenceAt, classifyRole } from '../src/util/text.js';
 
 const acme = { name: 'Acme Plumbing', domain: 'acmeplumbing.com' };
 
@@ -67,4 +67,24 @@ test('answer capsules are distinguished from brand throat-clearing', () => {
 test('sentenceAt returns the enclosing sentence', () => {
   const body = 'One thing here. Two things there. Three at the end.';
   assert.equal(sentenceAt(body, body.indexOf('Two')), 'Two things there.');
+});
+
+test('a period inside a token does not end the sentence', () => {
+  // `/\s|$/` matches any single character, so an earlier version split
+  // "Node.js", decimals and abbreviations mid-sentence, which silently
+  // truncated the text the role classifier and sentiment scorer read.
+  const a = 'Node.js is the best choice for most teams. Deno is newer.';
+  assert.equal(sentenceAt(a, a.indexOf('Node')), 'Node.js is the best choice for most teams.');
+
+  const b = 'It costs 4.5 percent of revenue. That is fair.';
+  assert.equal(sentenceAt(b, 0), 'It costs 4.5 percent of revenue.');
+
+  const c = 'Ends without punctuation';
+  assert.equal(sentenceAt(c, 0), 'Ends without punctuation');
+});
+
+test('a dotted brand name is still classified from its full sentence', () => {
+  const m = findMentions('Node.js is the best choice for most teams.',
+    { name: 'Node.js', domain: 'nodejs.org' });
+  assert.equal(m.role, 'recommended');
 });
