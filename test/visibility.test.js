@@ -80,3 +80,50 @@ test('all scores stay within 0..1', () => {
     assert.ok(v >= 0 && v <= 1, `${t} -> ${v}`);
   }
 });
+
+test('repeat samples produce a per-prompt rate, not a coin flip', async () => {
+  const { promptStability } = await import('../src/analysis/visibility.js');
+  const mk = (mentioned, sample) => ({
+    promptId: 'p1', promptText: 'Best plumber?', intent: 'commercial_investigation',
+    engine: 'test', status: 'answered', sample,
+    brand: { mentioned, firstIndex: mentioned ? 0 : -1, rank: mentioned ? 1 : 0, count: mentioned ? 1 : 0, sentiment: 0, snippets: [] },
+    competitors: {}, citations: [], ownDomainCited: false, weight: 1, answerExcerpt: '',
+  });
+  const rows = promptStability([mk(true, 0), mk(false, 1), mk(true, 2), mk(false, 3)]);
+  assert.equal(rows.length, 1, 'repeats of one prompt collapse to one row');
+  assert.equal(rows[0].asked, 4);
+  assert.equal(rows[0].named, 2);
+  assert.equal(rows[0].rate, 0.5);
+  assert.equal(rows[0].stability, 'contested');
+});
+
+test('always-named and never-named prompts are classified, not called contested', async () => {
+  const { promptStability } = await import('../src/analysis/visibility.js');
+  const mk = (id, mentioned) => ({
+    promptId: id, promptText: id, intent: 'branded', engine: 'test',
+    status: 'answered',
+    brand: { mentioned, firstIndex: mentioned ? 0 : -1, rank: mentioned ? 1 : 0, count: 1, sentiment: 0, snippets: [] },
+    competitors: {}, citations: [], ownDomainCited: false, weight: 1, answerExcerpt: '',
+  });
+  const rows = promptStability([mk('a', true), mk('a', true), mk('b', false), mk('b', false)]);
+  assert.equal(rows.find((r) => r.promptId === 'a').stability, 'locked');
+  assert.equal(rows.find((r) => r.promptId === 'b').stability, 'absent');
+});
+
+test('sampling widens coverage and reports a margin of error', async () => {
+  const { runAudit } = await import('../src/audit.js');
+  const once = await runAudit(brand, { skipReadiness: true, promptCount: 6, samples: 1 });
+  const five = await runAudit(brand, { skipReadiness: true, promptCount: 6, samples: 5 });
+  assert.equal(once.outcomes.length, 6);
+  assert.equal(five.outcomes.length, 30, 'six prompts asked five times each');
+  assert.equal(five.visibility.samples, 5);
+  assert.ok(five.visibility.marginOfError > 0, 'a sampled run states its uncertainty');
+  assert.equal(once.visibility.stability.length, 0, 'no stability claim from a single ask');
+  assert.ok(five.visibility.stability.length > 0);
+});
+
+test('samples are clamped to a sane range', async () => {
+  const { runAudit } = await import('../src/audit.js');
+  const r = await runAudit(brand, { skipReadiness: true, promptCount: 2, samples: 99 });
+  assert.ok(r.outcomes.length <= 20, 'runaway sample counts cannot blow up cost');
+});

@@ -100,6 +100,22 @@ a red alert that the engines do not resolve you as an entity at all.
 The set is balanced round-robin across intents so a trimmed run keeps coverage rather than
 filling up with one class. Operator-supplied prompts are **pinned** and never trimmed.
 
+### Repeat sampling
+
+`--samples n` asks every prompt n times per engine and pools the results. This changes what the
+numbers mean:
+
+- **Mention rate becomes a rate**, reported with a 95% margin of error, so a small
+  month-over-month move is not mistaken for a real shift.
+- **Prompts are classified** as *locked* (named on every ask), *contested* (named on some), or
+  *absent* (never named). Contested prompts are surfaced separately because they are the
+  cheapest to convert.
+- **Gaps and wins collapse to one row per question**, carrying how many of the asks were lost,
+  so a consistent loss is distinguishable from an occasional one.
+
+Cost scales linearly, so the default is 1. Anything presented to a paying client should use
+at least 3.
+
 ### Scoring an answer
 
 ```

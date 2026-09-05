@@ -32,7 +32,11 @@ export const engine = {
   async ask(prompt, ctx) {
     const started = Date.now();
     const { brand } = ctx;
-    const seed = (k) => seededUnit(`${brand.domain}|${prompt.id}|${k}`);
+    // The sample index enters the seed so repeat asks differ the way real
+    // assistant answers do, while a given (brand, prompt, sample) stays
+    // reproducible.
+    const sample = Number(ctx.sample) || 0;
+    const seed = (k) => seededUnit(`${brand.domain}|${prompt.id}|${sample}|${k}`);
 
     // How likely the brand is to surface, by intent. A brand nearly always wins
     // its own branded lookup and rarely wins an open "best X" prompt.

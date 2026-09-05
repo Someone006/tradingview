@@ -70,11 +70,48 @@ export function outcomeScore(o) {
 }
 
 /**
+ * Per-prompt stability across repeat samples.
+ *
+ * With samples > 1 the same question was asked several times. How often the
+ * brand came back is more useful than whether it came back once: a prompt won
+ * 1-in-4 is a real, fixable weakness, and a prompt won 4-in-4 is a position
+ * worth defending. Prompts that flip are where the cheapest wins usually are.
+ *
+ * @param {import('../types.js').PromptOutcome[]} answered
+ * @returns {Array<{promptId:string, prompt:string, intent:string, engine:string, asked:number, named:number, rate:number, stability:'locked'|'contested'|'absent'}>}
+ */
+export function promptStability(answered) {
+  /** @type {Map<string, {promptId:string,prompt:string,intent:string,engine:string,asked:number,named:number}>} */
+  const byKey = new Map();
+  for (const o of answered) {
+    const key = `${o.engine}|${o.promptId}`;
+    if (!byKey.has(key)) {
+      byKey.set(key, {
+        promptId: o.promptId, prompt: o.promptText, intent: o.intent,
+        engine: o.engine, asked: 0, named: 0,
+      });
+    }
+    const row = byKey.get(key);
+    row.asked++;
+    if (o.brand.mentioned) row.named++;
+  }
+  return [...byKey.values()]
+    .map((r) => {
+      const rate = r.asked ? r.named / r.asked : 0;
+      const stability = /** @type {'locked'|'contested'|'absent'} */ (
+        rate === 0 ? 'absent' : rate === 1 ? 'locked' : 'contested');
+      return { ...r, rate: round(rate), stability };
+    })
+    .sort((a, b) => a.rate - b.rate);
+}
+
+/**
  * Aggregate outcomes into the visibility report section.
  * @param {import('../types.js').PromptOutcome[]} outcomes
  * @param {import('../types.js').BrandProfile} brand
+ * @param {{samples?:number}} [opts]
  */
-export function summarise(outcomes, brand) {
+export function summarise(outcomes, brand, opts = {}) {
   const answered = outcomes.filter((o) => o.status === 'answered');
   const totalWeight = answered.reduce((a, o) => a + o.weight, 0);
 
@@ -94,8 +131,19 @@ export function summarise(outcomes, brand) {
   const avgSentiment = sentiments.length
     ? sentiments.reduce((a, b) => a + b, 0) / sentiments.length : 0;
 
+  const samples = Math.max(1, Math.floor(Number(opts.samples) || 1));
+  const stability = samples > 1 ? promptStability(answered) : [];
+
   return {
+    samples,
     score: round(weighted),
+    // With repeats, the margin of error on the headline mention rate. Reported
+    // so a 4-point month-over-month move is not mistaken for a real shift.
+    marginOfError: answered.length
+      ? round(1.96 * Math.sqrt(Math.max(mentionRate * (1 - mentionRate), 0) / answered.length))
+      : 0,
+    stability,
+    contested: stability.filter((s) => s.stability === 'contested').length,
     mentionRate: round(mentionRate),
     citationRate: round(citationRate),
     avgRank: round(avgRank, 2),
@@ -202,38 +250,75 @@ function citationDomains(answered, brand) {
     .slice(0, 25);
 }
 
-/** Prompts where competitors are named and the brand is not: the money list. */
+/**
+ * Prompts where competitors are named and the brand is not: the money list.
+ *
+ * Collapsed to one row per question and engine. Under repeat sampling the same
+ * loss recurs once per sample, and a client-facing table that lists the same
+ * question five times reads as a broken report rather than a finding. `lost`
+ * and `asked` carry how consistent the loss actually was.
+ */
 function findGaps(answered) {
-  return answered
-    .filter((o) => !o.brand.mentioned
-      && Object.values(o.competitors).some((m) => m.mentioned))
-    .map((o) => ({
-      promptId: o.promptId,
-      prompt: o.promptText,
-      intent: o.intent,
-      engine: o.engine,
-      weight: o.weight,
-      winners: Object.entries(o.competitors)
-        .filter(([, m]) => m.mentioned)
-        .sort((a, b) => a[1].rank - b[1].rank)
-        .map(([n]) => n),
+  /** @type {Map<string, {promptId:string,prompt:string,intent:string,engine:string,weight:number,asked:number,lost:number,winners:Set<string>}>} */
+  const byKey = new Map();
+
+  for (const o of answered) {
+    const key = `${o.engine}|${o.promptId}`;
+    if (!byKey.has(key)) {
+      byKey.set(key, {
+        promptId: o.promptId, prompt: o.promptText, intent: o.intent,
+        engine: o.engine, weight: o.weight, asked: 0, lost: 0, winners: new Set(),
+      });
+    }
+    const row = byKey.get(key);
+    row.asked++;
+    const rivals = Object.entries(o.competitors)
+      .filter(([, m]) => m.mentioned)
+      .sort((a, b) => a[1].rank - b[1].rank);
+    if (!o.brand.mentioned && rivals.length) {
+      row.lost++;
+      for (const [name] of rivals) row.winners.add(name);
+    }
+  }
+
+  return [...byKey.values()]
+    .filter((r) => r.lost > 0)
+    .map((r) => ({
+      promptId: r.promptId,
+      prompt: r.prompt,
+      intent: r.intent,
+      engine: r.engine,
+      weight: r.weight,
+      asked: r.asked,
+      lost: r.lost,
+      lossRate: round(r.lost / r.asked),
+      winners: [...r.winners],
     }))
-    .sort((a, b) => b.weight - a.weight);
+    // Consistent losses on high-value questions first: those are the ones
+    // costing real money on every single ask.
+    .sort((a, b) => (b.weight * b.lossRate) - (a.weight * a.lossRate));
 }
 
-/** Prompts the brand already wins outright. */
+/** Prompts the brand already wins outright, one row per question and engine. */
 function findWins(answered) {
-  return answered
-    .filter((o) => o.brand.mentioned && o.brand.rank === 1)
-    .map((o) => ({
-      promptId: o.promptId,
-      prompt: o.promptText,
-      intent: o.intent,
-      engine: o.engine,
-      sentiment: o.brand.sentiment,
-      cited: o.ownDomainCited,
-    }))
-    .sort((a, b) => b.sentiment - a.sentiment);
+  /** @type {Map<string, any>} */
+  const byKey = new Map();
+  for (const o of answered) {
+    if (!o.brand.mentioned || o.brand.rank !== 1) continue;
+    const key = `${o.engine}|${o.promptId}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.won++;
+      existing.sentiment = (existing.sentiment + o.brand.sentiment) / 2;
+      existing.cited = existing.cited || o.ownDomainCited;
+      continue;
+    }
+    byKey.set(key, {
+      promptId: o.promptId, prompt: o.promptText, intent: o.intent,
+      engine: o.engine, won: 1, sentiment: o.brand.sentiment, cited: o.ownDomainCited,
+    });
+  }
+  return [...byKey.values()].sort((a, b) => b.won - a.won || b.sentiment - a.sentiment);
 }
 
 /** @param {number} n @param {number} [places] */

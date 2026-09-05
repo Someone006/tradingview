@@ -53,6 +53,7 @@ ${topBar(b)}
   ${vis.skipped ? '' : shareOfVoice(vis, brand)}
   ${vis.skipped ? '' : intentSection(vis)}
   ${vis.skipped ? '' : gapSection(vis)}
+  ${vis.skipped ? '' : stabilitySection(vis)}
   ${vis.skipped ? '' : citationSection(vis)}
   ${crawlerSection(rd)}
   ${rd.blocked || !rd.checks?.length ? '' : checksSection(rd)}
@@ -342,18 +343,53 @@ function gapSection(vis) {
     return `<section class="sec"><h2>Where you are losing</h2>
     <p class="lede good-note">No gaps found: on every question tested where a competitor was named, you were named too.</p></section>`;
   }
+  const sampled = (vis.samples || 1) > 1;
   return `<section class="sec page-break">
   <h2>Where you are losing</h2>
   <p class="lede">These are the exact buyer questions where an assistant recommended a competitor and
   did not mention you. This is the highest-value list in the report: each row is a purchase
-  conversation you are absent from.</p>
+  conversation you are absent from.${sampled
+    ? ` Each question was asked ${vis.samples} times; the count shows how many of those asks you lost,
+       so a consistent loss is distinguishable from an occasional one.`
+    : ''}</p>
   <table class="data">
-    <thead><tr><th scope="col">Buyer question</th><th scope="col">Recommended instead</th><th scope="col">Engine</th></tr></thead>
+    <thead><tr><th scope="col">Buyer question</th><th scope="col">Recommended instead</th>
+      ${sampled ? '<th scope="col" class="num">Lost</th>' : ''}<th scope="col">Engine</th></tr></thead>
     <tbody>
     ${gaps.map((g) => `<tr>
       <td class="q">${esc(g.prompt)}</td>
       <td>${esc(g.winners.join(', '))}</td>
+      ${sampled ? `<td class="num">${g.lost} of ${g.asked}</td>` : ''}
       <td class="dim">${esc(g.engine)}</td>
+    </tr>`).join('\n')}
+    </tbody>
+  </table>
+</section>`;
+}
+
+/**
+ * Only meaningful when each prompt was asked more than once - with a single
+ * ask every prompt is trivially "locked" or "absent", which would read as a
+ * finding while saying nothing.
+ */
+function stabilitySection(vis) {
+  const rows = (vis.stability || []).filter((s) => s.stability === 'contested');
+  if (!vis.samples || vis.samples < 2 || !rows.length) return '';
+  return `<section class="sec">
+  <h2>Contested questions</h2>
+  <p class="lede">Each question was asked ${vis.samples} times. These are the ones where you
+  appeared some of the time but not reliably &mdash; the assistant is undecided about you.
+  They are usually the cheapest wins in this report: you are already close enough to surface,
+  so a single strong page on the topic often settles it.</p>
+  <table class="data">
+    <caption class="sr-only">Prompts where the brand appeared inconsistently across repeat asks</caption>
+    <thead><tr><th scope="col">Buyer question</th><th scope="col" class="num">Named</th><th scope="col" class="num">Rate</th><th scope="col">Engine</th></tr></thead>
+    <tbody>
+    ${rows.slice(0, 15).map((r) => `<tr>
+      <td class="q">${esc(r.prompt)}</td>
+      <td class="num">${r.named} of ${r.asked}</td>
+      <td class="num">${pct(r.rate)}</td>
+      <td class="dim">${esc(r.engine)}</td>
     </tr>`).join('\n')}
     </tbody>
   </table>
@@ -506,7 +542,8 @@ function methodology(report) {
     across seven intent types (commercial research, comparisons, alternatives, local, pricing,
     problem-led and branded) and put to
     ${esc((report.meta.engineLabels || []).join(', ') || 'no engines')}.
-    Each answer was scanned for the brand and its competitors. The visibility score weights presence
+    Each question was asked ${vis.samples > 1 ? `<strong>${vis.samples} times</strong> and the results pooled` : 'once'},
+    and every answer was scanned for the brand and its competitors. The visibility score weights presence
     most heavily, then position in the answer, sentiment of the surrounding sentence, and whether the
     brand's own domain was cited.
     ${vis.promptsFailed ? `${vis.promptsFailed} call(s) failed and were excluded.` : ''}</p>

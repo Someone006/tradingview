@@ -156,6 +156,7 @@ Key audit flags:
 --domain / --category Audit without a profile file
 --engines a,b         Pick engines explicitly
 --prompts <n>         Prompts to generate (default 24)
+--samples <n>         Ask each prompt n times, 1-10 (default 1)
 --pages <n>           Max pages to crawl (default 12)
 --format html,md,csv  Output formats (default html,json)
 --no-visibility       Crawl only — no API keys needed
@@ -207,6 +208,45 @@ follows.
 surrounding sentence, and whether your own domain was cited.
 
 Grades: A ≥ 85%, B ≥ 70%, C ≥ 55%, D ≥ 40%, F below.
+
+### Getting a better measurement
+
+Assistant answers are non-deterministic: ask the same question twice and you can
+get a different shortlist. A single ask is therefore one draw from a distribution, and
+a brand that surfaces half the time reads as a clean win or a total loss depending on the
+coin flip.
+
+`--samples` is the fix, and it is the single biggest quality lever in the tool:
+
+```bash
+citebeam audit --brand brand.json --samples 5
+```
+
+Each question is asked five times and the results pooled. You get a mention *rate* with a
+stated margin of error instead of a binary, plus a **contested questions** list: the prompts
+where you appear sometimes but not reliably. Those are usually the cheapest wins in the whole
+report, because you are already close enough to surface and one strong page often settles it.
+
+Cost scales linearly with `--samples`, which is why the default is 1. For a paid client audit,
+5 is a sensible setting. Note that a bigger, more expensive model is *not* the quality lever
+here - see below.
+
+### On model choice
+
+The engines are not analysing anything; they are the thing being measured. The goal is to
+replicate what your buyer actually sees, so fidelity beats capability:
+
+- **Match the model to what real buyers get.** Most people asking ChatGPT about a plumber are
+  on a default model, not a frontier reasoning model. Measuring with a costlier model can
+  measure an answer no real customer receives.
+- **Prefer engines that retrieve the live web.** Perplexity returns a real citation list, which
+  is ground truth for who gets cited. A plain chat completion with no browsing answers from
+  training data, which is a weaker proxy for a real answer engine.
+- **Spend on breadth, not depth.** More prompts, more samples and more engines all improve the
+  measurement. A larger model mostly does not.
+
+Every model is overridable per provider (`CITEBEAM_OPENAI_MODEL` and friends) if you want to
+measure a specific one deliberately.
 
 ### Honesty guarantees
 

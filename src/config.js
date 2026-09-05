@@ -35,6 +35,9 @@ export const DEFAULTS = {
   crawlConcurrency: Number(process.env.CITEBEAM_CRAWL_CONCURRENCY || 4),
   engineConcurrency: Number(process.env.CITEBEAM_ENGINE_CONCURRENCY || 3),
   promptCount: Number(process.env.CITEBEAM_PROMPT_COUNT || 24),
+  // Repeat asks per prompt. 1 keeps a run cheap; 3-5 turns a coin flip
+  // into a rate. Cost scales linearly, so raising it is a deliberate act.
+  samples: Number(process.env.CITEBEAM_SAMPLES || 1),
   port: Number(process.env.PORT || process.env.CITEBEAM_PORT || 4317),
   requestTimeout: Number(process.env.CITEBEAM_TIMEOUT || 15000),
 };

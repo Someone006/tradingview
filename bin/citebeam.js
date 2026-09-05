@@ -55,6 +55,7 @@ async function cmdAudit() {
   const report = await runAudit(brand, {
     engines: list(flags.engines),
     promptCount: Number(flags.prompts || DEFAULTS.promptCount),
+    samples: Number(flags.samples || DEFAULTS.samples),
     maxPages: Number(flags.pages || DEFAULTS.maxPages),
     skipVisibility: !!flags['no-visibility'],
     skipReadiness: !!flags['no-readiness'],
@@ -122,6 +123,15 @@ function printSummary(report) {
     log.info(c.bold('  Answer share'));
     for (const s of vis.shareOfVoice.slice(0, 6)) {
       log.info(`   ${(s.isBrand ? c.cyan(s.name) : s.name).padEnd(34)} ${bar(s.share, 16)}  ${pct(s.share)}`);
+    }
+  }
+  if ((vis.stability || []).length && vis.samples > 1) {
+    const contested = vis.stability.filter((x) => x.stability === 'contested');
+    log.blank();
+    log.info(c.bold(`  Asked each prompt ${vis.samples}x - ${contested.length} contested`));
+    log.info(c.dim(`   mention rate ${pct(vis.mentionRate)} +/- ${pct(vis.marginOfError)}`));
+    for (const x of contested.slice(0, 4)) {
+      log.info(`   ${c.yellow(`${x.named}/${x.asked}`)} "${x.prompt.slice(0, 62)}${x.prompt.length > 62 ? '...' : ''}"`);
     }
   }
   if ((vis.gaps || []).length) {
@@ -300,6 +310,9 @@ ${c.bold('AUDIT OPTIONS')}
   --competitors a,b     Competitor names, comma separated
   --engines a,b         openai, anthropic, perplexity, gemini, simulated
   --prompts <n>         Prompts to generate (default ${DEFAULTS.promptCount})
+  --samples <n>         Ask each prompt n times, 1-10 (default ${DEFAULTS.samples}).
+                        Answers vary run to run; 3-5 turns a single coin
+                        flip into a rate. Multiplies API cost by n.
   --pages <n>           Max pages to crawl (default ${DEFAULTS.maxPages})
   --format a,b          html, json, md, csv (default html,json)
   --out <dir>           Output directory (default ${DEFAULTS.outDir})

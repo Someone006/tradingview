@@ -20,6 +20,7 @@
  * @typedef {Object} EngineContext
  * @property {import('../types.js').BrandProfile} brand
  * @property {number} timeout
+ * @property {number} [sample] Zero-based repeat index when sampling.
  */
 
 /**

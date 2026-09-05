@@ -127,4 +127,9 @@ API spend only, at 24 prompts:
 | One engine | $0.01–0.05 |
 | All four | $0.05–0.20 |
 
-Which is the entire commercial argument: audits you sell for hundreds cost you cents.
+Multiply by `--samples`: a 5-sample run makes five times the calls, and is worth it for a paid
+audit. Even so, audits you sell for hundreds cost you cents - which is the entire commercial
+argument.
+
+These are estimates, not quotes. Provider pricing changes; check the current rate before you
+budget, and control spend with `--prompts`, `--samples` and how many engines you enable.

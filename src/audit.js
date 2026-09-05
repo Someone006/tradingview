@@ -19,7 +19,7 @@ import { log, c } from './util/log.js';
  * AI provider keys are configured.
  *
  * @param {import('./types.js').BrandProfile} brand
- * @param {{engines?:string[], promptCount?:number, maxPages?:number, skipVisibility?:boolean, skipReadiness?:boolean, previous?:any, onProgress?:(done:number,total:number)=>void}} [opts]
+ * @param {{engines?:string[], promptCount?:number, samples?:number, maxPages?:number, skipVisibility?:boolean, skipReadiness?:boolean, previous?:any, onProgress?:(done:number,total:number)=>void}} [opts]
  * @returns {Promise<import('./types.js').AuditReport>}
  */
 export async function runAudit(brand, opts = {}) {
@@ -51,6 +51,7 @@ export async function runAudit(brand, opts = {}) {
       ? Promise.resolve({ outcomes: [], summary: emptyVisibility() })
       : runVisibility(brand, prompts, engines, {
         concurrency: DEFAULTS.engineConcurrency,
+        samples: opts.samples ?? DEFAULTS.samples,
         onProgress: opts.onProgress,
       }),
   ]);
