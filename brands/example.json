@@ -1,0 +1,21 @@
+{
+  "name": "Node.js",
+  "domain": "nodejs.org",
+  "aliases": ["NodeJS", "Node"],
+  "category": "server-side JavaScript runtime",
+  "audience": "backend and full-stack developers choosing a runtime",
+  "competitors": [
+    { "name": "Deno", "domain": "deno.com" },
+    { "name": "Bun", "domain": "bun.sh" }
+  ],
+  "extraPrompts": [
+    "Which JavaScript runtime should I use for a new production API in 2026?"
+  ],
+  "branding": {
+    "agencyName": "Your Agency",
+    "accent": "#4f46e5",
+    "contactEmail": "hello@youragency.com",
+    "website": "youragency.com",
+    "footerNote": "Prepared by Your Agency. Data collected with CiteBeam."
+  }
+}

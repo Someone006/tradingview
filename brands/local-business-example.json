@@ -1,0 +1,37 @@
+{
+  "name": "Northwind Plumbing",
+  "domain": "northwindplumbing.com",
+  "aliases": [
+    "Northwind"
+  ],
+  "category": "emergency plumbing services",
+  "location": "Austin, TX",
+  "audience": "homeowners dealing with burst pipes and water heater failures",
+  "competitors": [
+    {
+      "name": "RiverCity Plumbers",
+      "domain": "rivercityplumbers.com"
+    },
+    {
+      "name": "Lone Star Drain Co",
+      "domain": "lonestardrain.com",
+      "aliases": [
+        "Lone Star Drain"
+      ]
+    },
+    {
+      "name": "Capitol Rooter",
+      "domain": "capitolrooter.com"
+    }
+  ],
+  "extraPrompts": [
+    "My water heater is leaking in Austin. Who should I call tonight?"
+  ],
+  "branding": {
+    "agencyName": "Your Agency",
+    "accent": "#4f46e5",
+    "contactEmail": "hello@youragency.com",
+    "website": "youragency.com",
+    "footerNote": "Prepared by Your Agency. Data collected via CiteBeam."
+  }
+}

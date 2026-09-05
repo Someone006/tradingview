@@ -1,0 +1,44 @@
+{
+  "name": "citebeam",
+  "version": "1.0.0",
+  "description": "CiteBeam - AI Search Visibility & AEO audit platform. Track whether ChatGPT, Perplexity, Gemini and Claude recommend your brand, audit your site against the 2026 citation playbook, and ship client-ready white-label reports.",
+  "type": "module",
+  "bin": {
+    "citebeam": "./bin/citebeam.js"
+  },
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node bin/citebeam.js serve",
+    "audit": "node bin/citebeam.js audit",
+    "demo": "node bin/citebeam.js audit --brand brands/example.json --open",
+    "test": "node --test \"test/*.test.js\"",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "node --check bin/citebeam.js"
+  },
+  "keywords": [
+    "aeo",
+    "geo",
+    "generative-engine-optimization",
+    "ai-search",
+    "ai-visibility",
+    "chatgpt",
+    "perplexity",
+    "llm-seo",
+    "answer-engine-optimization",
+    "brand-monitoring",
+    "white-label",
+    "seo-agency",
+    "self-hosted"
+  ],
+  "license": "SEE LICENSE IN LICENSE",
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "typescript": "^5.9.3"
+  }
+}
