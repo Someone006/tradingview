@@ -48,3 +48,21 @@ test('the access audit reports every tracked crawler', () => {
   assert.ok(rows.some((r) => r.ua === 'GPTBot' && r.critical));
   assert.ok(rows.every((r) => typeof r.allowed === 'boolean'));
 });
+
+test('CiteBeam honours a site that disallows all crawlers', async () => {
+  const { parseRobots: parse, isAllowed: allowed } = await import('../src/crawler/robots.js');
+  const { OWN_UA_TOKEN } = await import('../src/crawler/crawl.js');
+
+  const blockAll = parse('User-agent: *\nDisallow: /');
+  assert.equal(allowed(blockAll, OWN_UA_TOKEN, '/'), false,
+    'a blanket disallow applies to us too');
+
+  const named = parse('User-agent: *\nAllow: /\n\nUser-agent: CiteBeam\nDisallow: /');
+  assert.equal(allowed(named, OWN_UA_TOKEN, '/'), false,
+    'an owner can name and block this crawler specifically');
+
+  const partial = parse('User-agent: *\nAllow: /\nDisallow: /private');
+  assert.equal(allowed(partial, OWN_UA_TOKEN, '/pricing'), true);
+  assert.equal(allowed(partial, OWN_UA_TOKEN, '/private/x'), false,
+    'disallowed paths are skipped rather than fetched');
+});

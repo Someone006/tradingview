@@ -270,6 +270,30 @@ replicate what your buyer actually sees, so fidelity beats capability:
 Every model is overridable per provider (`CITEBEAM_OPENAI_MODEL` and friends) if you want to
 measure a specific one deliberately.
 
+### Crawling policy
+
+CiteBeam honours `robots.txt` for its own fetches and identifies itself as `CiteBeam`. A site
+that disallows crawling is reported as *not crawled* and the disallow is surfaced as the
+finding — it is never scored as a failing site. `--ignore-robots` exists for sites you own or
+have written permission to audit.
+
+A tool whose headline finding is "you are blocking crawlers" has no business ignoring the same
+file.
+
+### Data protection
+
+Built for the revised Swiss FADP (revFADP/revDSG, in force September 2023):
+
+```bash
+citebeam privacy register                      # what this deployment processes
+citebeam privacy purge --days 730 --confirm    # retention (Art. 6)
+citebeam privacy export acme.com --out x.json  # right of access (Art. 25)
+citebeam privacy erase acme.com --confirm      # right to erasure (Art. 32)
+```
+
+Destructive operations are dry-run until `--confirm`. See
+**[docs/SWITZERLAND.md](docs/SWITZERLAND.md)**.
+
 ### Honesty guarantees
 
 These are deliberate, and tested:
@@ -293,6 +317,8 @@ cents of API spend.
 Other docs:
 
 - **[docs/METHODOLOGY.md](docs/METHODOLOGY.md)** — every check, what it measures, why it matters
+- **[docs/SWITZERLAND.md](docs/SWITZERLAND.md)** — running this as a Swiss business: UWG outreach
+  rules, revFADP duties and the commands that satisfy them, crawling, VAT and imprint
 - **[docs/DEPLOY.md](docs/DEPLOY.md)** — Docker, systemd, scheduled monitoring, CI gating
 
 ---

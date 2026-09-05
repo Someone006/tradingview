@@ -11,6 +11,7 @@ import { runAudit } from '../src/audit.js';
 import { renderReport } from '../src/report/html.js';
 import { toJson, toMarkdown, outcomesCsv, checksCsv, recommendationsCsv } from '../src/report/exports.js';
 import { Store } from '../src/store/store.js';
+import { purgeExpired, exportSubject, eraseSubject, processingRegister, DEFAULT_RETENTION_DAYS } from '../src/store/privacy.js';
 import { log, c, setQuiet, bar, pct } from '../src/util/log.js';
 import { slug } from '../src/util/id.js';
 import { ALL_ENGINES } from '../src/engines/index.js';
@@ -28,6 +29,7 @@ const COMMANDS = {
   history: cmdHistory,
   report: cmdReport,
   engines: cmdEngines,
+  privacy: cmdPrivacy,
   help: cmdHelp,
 };
 
@@ -57,6 +59,7 @@ async function cmdAudit() {
     promptCount: Number(flags.prompts || DEFAULTS.promptCount),
     samples: Number(flags.samples || DEFAULTS.samples),
     maxPages: Number(flags.pages || DEFAULTS.maxPages),
+    respectRobots: !flags['ignore-robots'],
     skipVisibility: !!flags['no-visibility'],
     skipReadiness: !!flags['no-readiness'],
     previous,
@@ -262,6 +265,70 @@ async function cmdReport() {
   }
 }
 
+/**
+ * Data-protection operations. Grouped under one command so the whole surface
+ * is discoverable when someone is answering a data-subject request under time
+ * pressure.
+ */
+async function cmdPrivacy() {
+  const store = new Store(flags.data || DEFAULTS.dataDir);
+  const action = positional[0] || flags.action || 'register';
+  const target = positional[1] || flags.brand;
+
+  if (action === 'register') {
+    const reg = processingRegister(store);
+    if (flags.out) {
+      writeFileSync(String(flags.out), JSON.stringify(reg, null, 2));
+      log.ok(`Wrote ${flags.out}`);
+    } else {
+      console.log(JSON.stringify(reg, null, 2));
+    }
+    return;
+  }
+
+  if (action === 'purge') {
+    // `?? `, not `||`: --days 0 means "purge everything" and must not
+    // silently fall through to the default retention window.
+    const days = Number(flags.days ?? DEFAULT_RETENTION_DAYS);
+    const dryRun = !flags.confirm;
+    const res = purgeExpired(store, { days, dryRun });
+    log.blank();
+    log.info(`  Retention: ${days} days (cutoff ${res.cutoff.slice(0, 10)})`);
+    log.info(`  ${res.removed.length} run(s) past retention, ${res.kept} kept`);
+    for (const r of res.removed.slice(0, 12)) {
+      log.info(c.dim(`   ${r.brand}  ${r.id}  ${String(r.createdAt).slice(0, 10)}`));
+    }
+    log.blank();
+    if (dryRun) log.warn('Dry run - nothing deleted. Re-run with --confirm to delete.');
+    else log.ok(`Deleted ${res.removed.length} run(s).`);
+    return;
+  }
+
+  if (action === 'export') {
+    if (!target) throw new Error('Usage: citebeam privacy export <domain> [--out file.json]');
+    const out = String(flags.out || `${slug(target)}-data-export.json`);
+    const res = exportSubject(store, store.brandKey(target), out);
+    log.ok(`Exported ${res.runCount} run(s) to ${res.file}`);
+    return;
+  }
+
+  if (action === 'erase') {
+    if (!target) throw new Error('Usage: citebeam privacy erase <domain> --confirm');
+    if (!flags.confirm) {
+      const n = store.history(store.brandKey(target)).length;
+      log.warn(`This permanently deletes ${n} run(s) for ${target}.`);
+      log.info('Re-run with --confirm to proceed.');
+      return;
+    }
+    const res = eraseSubject(store, store.brandKey(target));
+    log.ok(`Erased ${res.runsDeleted} run(s) for ${target}.`);
+    return;
+  }
+
+  throw new Error(`Unknown privacy action "${action}". `
+    + 'Use: register | purge | export | erase');
+}
+
 async function cmdEngines() {
   log.blank();
   log.info(c.bold('  Engines'));
@@ -314,7 +381,14 @@ ${c.bold('COMMANDS')}
   history       Show run history for a brand
   report        Re-render a stored run
   engines       Show engine and credential status
+  privacy       Data-protection operations (see below)
   help          Show this message
+
+${c.bold('PRIVACY')} ${c.dim('(Swiss revFADP support)')}
+  citebeam privacy register              Describe what this deployment processes
+  citebeam privacy purge --days 730      Delete runs past retention (add --confirm)
+  citebeam privacy export <domain>       Right-of-access export (Art. 25)
+  citebeam privacy erase <domain>        Right-to-erasure (Art. 32, add --confirm)
 
 ${c.bold('AUDIT OPTIONS')}
   --brand <file>        Brand profile JSON (default: brand.json)
@@ -330,6 +404,8 @@ ${c.bold('AUDIT OPTIONS')}
   --format a,b          html, json, md, csv (default html,json)
   --out <dir>           Output directory (default ${DEFAULTS.outDir})
   --no-visibility       Skip AI queries, crawl only (no API keys needed)
+  --ignore-robots       Crawl pages robots.txt disallows. Only for sites you
+                        own or have written permission to audit.
   --no-readiness        Skip the crawl, query engines only
   --no-save             Do not record the run in the store
   --fail [score]        Exit non-zero below this score, 0-100 (CI gate)

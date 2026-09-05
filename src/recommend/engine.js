@@ -41,7 +41,31 @@ export function recommend(ctx) {
 
   // A blocked crawl is itself the finding, and a serious one: whatever stopped
   // us is very likely stopping the answer engines too.
-  if (readiness.blocked) {
+  if (readiness.blocked && readiness.robotsBlocked) {
+    out.push({
+      id: 'robots-disallows-crawling',
+      title: 'Your robots.txt tells every crawler to stay out',
+      why: `${brand.domain} disallows automated crawling at the site root, so CiteBeam stopped `
+        + 'rather than crawl against the owner\'s wishes. The same file governs GPTBot, ClaudeBot '
+        + 'and PerplexityBot: if this rule applies to them too, no answer engine can read a single '
+        + 'page, and the site cannot appear in any AI answer regardless of its content.',
+      how: 'Decide deliberately what you want to allow. If the blanket disallow was not intended, '
+        + 'replace it with explicit rules that permit the answer engines while keeping private '
+        + 'paths closed. If it was intended, accept that AI visibility is not available to this '
+        + 'site and stop spending on it.',
+      snippet: `# Allow answer engines, keep private areas closed\n`
+        + `User-agent: GPTBot\nUser-agent: OAI-SearchBot\nUser-agent: ClaudeBot\n`
+        + `User-agent: PerplexityBot\nUser-agent: Google-Extended\nAllow: /\nDisallow: /admin\n\n`
+        + `User-agent: *\nAllow: /\nDisallow: /admin\n\n`
+        + `Sitemap: https://${brand.domain}/sitemap.xml\n`,
+      severity: 'critical',
+      impact: 5,
+      effort: 1,
+      priority: 0,
+      pillar: 'technical',
+      evidence: readiness.blockedReason,
+    });
+  } else if (readiness.blocked) {
     out.push({
       id: 'crawl-blocked',
       title: 'Your site could not be fetched by an automated client',

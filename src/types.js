@@ -134,6 +134,9 @@
  * @property {string|null} llmsTxt
  * @property {string[]} sitemapUrls
  * @property {boolean} reachable
+ * @property {boolean} [robotsRespected] Whether the site's robots.txt was honoured.
+ * @property {boolean} [robotsBlocked]   True when robots.txt disallowed the crawl entirely.
+ * @property {number} [robotsSkipped]    Pages skipped because robots.txt disallowed them.
  * @property {string} [error]
  */
 

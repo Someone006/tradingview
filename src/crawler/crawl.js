@@ -6,7 +6,12 @@
  */
 import { fetchText, normaliseSite, pool, hostOf, sameHost } from '../util/http.js';
 import * as H from '../util/html.js';
+import { parseRobots, isAllowed } from './robots.js';
+import { USER_AGENT } from '../util/http.js';
 import { log } from '../util/log.js';
+
+/** The token site owners would use to address this crawler in robots.txt. */
+export const OWN_UA_TOKEN = 'CiteBeam';
 
 /** Page paths that carry disproportionate AEO weight, tried in order. */
 const PRIORITY_PATTERNS = [
@@ -159,11 +164,14 @@ function pathDepth(u) {
 /**
  * Crawl a site and return a snapshot for the check suite.
  * @param {string} domain
- * @param {{maxPages?:number, concurrency?:number, keyPages?:string[], timeout?:number}} [opts]
+ * @param {{maxPages?:number, concurrency?:number, keyPages?:string[], timeout?:number, respectRobots?:boolean}} [opts]
  * @returns {Promise<import('../types.js').SiteSnapshot>}
  */
 export async function crawlSite(domain, opts = {}) {
-  const { maxPages = 12, concurrency = 4, keyPages = [], timeout = 15000 } = opts;
+  const {
+    maxPages = 12, concurrency = 4, keyPages = [], timeout = 15000,
+    respectRobots = true,
+  } = opts;
   const { origin, host } = normaliseSite(domain);
 
   /** @type {import('../types.js').SiteSnapshot} */
@@ -196,9 +204,37 @@ export async function crawlSite(domain, opts = {}) {
   snap.llmsTxt = llmsTxt;
   snap.sitemapUrls = await fetchSitemapUrls(origin, robotsTxt).catch(() => []);
 
+  // Honour the site's own robots.txt for our fetches. A tool whose headline
+  // finding is "you are blocking crawlers" has no business ignoring the same
+  // file, and respecting it is the documented way to show a crawler acted
+  // reasonably. Owners can address us as `CiteBeam`; we also obey `*`.
+  const groups = parseRobots(robotsTxt);
+  const pathOf = (u) => { try { return new URL(u).pathname || '/'; } catch { return '/'; } };
+  const mayFetch = (u) => respectRobots === false
+    || isAllowed(groups, OWN_UA_TOKEN, pathOf(u));
+
+  snap.robotsRespected = respectRobots !== false;
+  if (respectRobots !== false && !isAllowed(groups, OWN_UA_TOKEN, '/')) {
+    // The owner has asked crawlers not to read the site. That is their call.
+    snap.reachable = false;
+    snap.error = 'robots.txt disallows automated crawling of this site. '
+      + 'CiteBeam honours that. Re-run with --ignore-robots only where you are '
+      + 'the site owner or have written permission.';
+    snap.robotsBlocked = true;
+    snap.pages = [home];
+    log.warn(snap.error);
+    return snap;
+  }
+
   const discovered = [...new Set([...home.links, ...snap.sitemapUrls])];
-  const targets = selectPages(origin, host, discovered, keyPages, maxPages)
+  const allTargets = selectPages(origin, host, discovered, keyPages, maxPages)
     .filter((u) => u.replace(/\/$/, '') !== origin.replace(/\/$/, ''));
+  const targets = allTargets.filter(mayFetch);
+  const skipped = allTargets.length - targets.length;
+  if (skipped > 0) {
+    snap.robotsSkipped = skipped;
+    log.info(`   ${skipped} page(s) skipped: disallowed by robots.txt`);
+  }
 
   const rest = await pool(targets, concurrency, (u) => fetchPage(u, timeout));
   snap.pages = [home, ...rest.filter((p) => p && p.status > 0 && p.status < 400)];

@@ -12,7 +12,7 @@ export { PILLAR_LABELS, PILLAR_WEIGHTS };
 
 /**
  * @param {import('../types.js').BrandProfile} brand
- * @param {{maxPages?:number, concurrency?:number, timeout?:number}} [opts]
+ * @param {{maxPages?:number, concurrency?:number, timeout?:number, respectRobots?:boolean}} [opts]
  */
 export async function assessReadiness(brand, opts = {}) {
   const site = await crawlSite(brand.domain, {
@@ -20,6 +20,7 @@ export async function assessReadiness(brand, opts = {}) {
     concurrency: opts.concurrency,
     timeout: opts.timeout,
     keyPages: brand.keyPages,
+    respectRobots: opts.respectRobots,
   });
 
   const crawlers = auditAiAccess(site.robotsTxt);
@@ -39,6 +40,7 @@ export async function assessReadiness(brand, opts = {}) {
       crawlers,
       checks: [],
       blocked: true,
+      robotsBlocked: !!site.robotsBlocked,
       blockedReason: site.error || 'The site did not return a usable response.',
       overall: null,
       pillars: { technical: null, structure: null, content: null, authority: null },

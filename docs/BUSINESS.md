@@ -34,40 +34,55 @@ output and adding two or three sentences of context per finding.
 blocked in your robots.txt", "you are absent from 9 of the 12 questions your buyers ask",
 "your competitor is named 3x more often than you." That is not a metric, it is a problem.
 
-### The free-audit funnel
+### Reaching prospects in Switzerland — read this before you send anything
 
-The highest-converting motion, because the crawl needs no API keys:
+**Cold bulk email is a criminal offence in Switzerland.** Art. 3(1)(o) of the Federal Act
+Against Unfair Competition (UWG/LCD) prohibits sending mass advertising by
+telecommunications without the recipient's prior consent. It applies to B2B, not just
+consumers. Under Art. 23 UWG a breach carries a custodial sentence of up to three years or a
+monetary penalty. There is no "we found their address on their website" exemption.
 
-1. Pick 20–50 businesses in one vertical and one city.
-2. Run the crawl-only audit on each — no keys, no cost:
-   ```bash
-   while read -r domain category; do
-     node bin/citebeam.js audit --domain "$domain" --category "$category" \
-       --no-visibility --quiet --format html
-   done < prospects.txt
-   ```
-3. Email the ones with a genuinely bad finding. Attach nothing; describe one specific problem
-   and offer the report.
+An earlier version of this document recommended a cold-email funnel. That advice was wrong
+for Switzerland and has been removed. What follows is the compliant version.
 
-Template:
+**The narrow exception.** You may email an *existing customer* about your own similar
+products or services, provided you gave them the chance to refuse at collection and in every
+message. That is a retention channel, not an acquisition channel.
 
-> Subject: ChatGPT can't read {domain}
->
-> Hi {name} — I run AI-search visibility audits for {industry} businesses.
->
-> I checked {domain} this morning. Your robots.txt currently blocks GPTBot and
-> PerplexityBot, which means ChatGPT and Perplexity can't read a single page of your site.
-> When someone asks either of them for {category} in {city}, you can't be in the answer.
->
-> It's a four-line fix. I've put together a full report — 26 checks, the specific questions
-> you're currently losing, and the exact changes to make. Want me to send it over?
->
-> {your name}
+**What is actually allowed:**
 
-Only send this when the finding is real. The report shows the actual robots.txt lines, so an
-exaggeration gets caught immediately.
+1. **Phone first.** B2B cold calling remains permissible on the basis of presumed consent
+   (*mutmassliche Einwilligung*) where your service is plainly relevant to that business's
+   operations. Check the recipient is not marked with an asterisk in the telephone directory —
+   that asterisk is a registered objection to advertising calls, and calling anyway is itself
+   a UWG breach. Get verbal agreement to send the report, and log who agreed and when.
+2. **Then email, because they asked you to.** Consent obtained on a call is consent. Record it.
+3. **Inbound and opt-in.** Publish the free checker, gate the full report behind a form with a
+   clear, unticked consent box, and use double opt-in for anything list-shaped.
+4. **LinkedIn and in-person.** Direct messages on a platform the person opted into, referrals,
+   trade associations, local business networks, chambers of commerce.
 
----
+**The free crawl is still your best asset** — it just travels differently. Run it, then use
+the finding as the reason for a *call*, not the payload of a bulk mailing:
+
+```bash
+while read -r domain category; do
+  node bin/citebeam.js audit --domain "$domain" --category "$category" \
+    --no-visibility --quiet --format html
+done < prospects.txt
+```
+
+A call that opens with "your robots.txt is blocking ChatGPT from reading your site, and I can
+show you the line" converts better than any email, and it is lawful.
+
+**Consent log.** Keep, per contact: who consented, when, by what channel, and to what. If a
+complaint reaches SECO you will be asked to produce it. A spreadsheet is sufficient.
+
+**Selling outside Switzerland?** The EU is stricter still: GDPR plus the ePrivacy rules, with
+Germany's UWG §7 enforced aggressively. Do not assume a Swiss approach travels.
+
+*This is an engineering document, not legal advice. Confirm your approach with a Swiss lawyer
+before running outreach at scale.*
 
 ## Model 2 — Monthly monitoring retainer
 
@@ -102,13 +117,24 @@ Because it is self-hosted, zero-dependency and white-label, it packages cleanly.
 
 ## Pricing the audit itself
 
-| Tier | Price | Scope |
+| Tier | Price (CHF, excl. VAT) | Scope |
 |---|---|---|
-| Snapshot | $297 | Crawl-only audit, report, no call |
-| Standard | $997 | Full audit, competitors, 30-min walkthrough |
-| Deep | $2,000+ | Multi-location or multi-product, implementation plan |
-| Monitoring | $299/mo | Monthly re-run, delta report, quarterly call |
-| Done-for-you | $1,500–5,000/mo | Monitoring plus actually implementing the fixes |
+| Snapshot | 290 | Crawl-only audit, report, no call |
+| Standard | 950 | Full audit, competitors, 30-min walkthrough |
+| Deep | 2,000+ | Multi-location or multi-product, implementation plan |
+| Monitoring | 290/mo | Monthly re-run, delta report, quarterly call |
+| Done-for-you | 1,500–5,000/mo | Monitoring plus implementing the fixes |
+
+**Swiss VAT.** The standard rate is 8.1%. You must register for VAT (MWST/TVA) once turnover
+reaches **CHF 100,000** a year; below that, registration is voluntary. Once registered, state
+clearly whether quoted prices include or exclude VAT — for consumers the Price Indication
+Ordinance (PBV/OIP) requires the actual price payable, VAT included. B2B quotes conventionally
+show the net price plus VAT, but the treatment must be unambiguous either way.
+
+**Impressum.** A commercial Swiss website must carry an imprint reachable within about two
+clicks: legal name, a real street address (no P.O. box), email, and commercial-register and
+VAT numbers where you have them. Art. 3(1)(s) UWG. Omitting it is itself an unfair-competition
+breach and can be fined.
 
 The implementation retainer is where the real money is. The audit is how you earn the right to
 propose it — every report ends in a prioritised list of work only you have already scoped.
@@ -157,4 +183,8 @@ lagging one. Never promise a ranking; promise the diagnosis and the work.
 - **Never report a blocked crawl as a failing site.** The tool already refuses to; do not
   paper over it in the deck.
 - **Do not promise rankings.** Answers are non-deterministic and personalised. Sell the
-  diagnosis, the fix, and the trend.
+  diagnosis, the fix, and the trend. Under Art. 3(1)(b) UWG, inaccurate or misleading claims
+  about your services are themselves unfair competition — so "we will get you into ChatGPT"
+  is not merely over-promising, it is actionable.
+- **Never send bulk email without consent.** See the outreach section. It is the single
+  fastest way to turn this business into a criminal matter.
