@@ -1,3 +1,5 @@
+import { categoryText } from '../config.js';
+
 /**
  * The fix catalogue.
  *
@@ -79,7 +81,7 @@ export const RULES = [
         + 'parsing gamble at effectively zero cost.',
       how: `Publish this at https://${brand.domain}/llms.txt as plain text (content-type text/plain), `
         + 'and keep the link list current as you add cornerstone pages.',
-      snippet: `# ${brand.name}\n\n> ${brand.name} provides ${brand.category}`
+      snippet: `# ${brand.name}\n\n> ${brand.name} provides ${categoryText(brand)}`
         + `${brand.location ? ` in ${brand.location}` : ''}.\n\n`
         + `## Core pages\n\n`
         + `- [Services](https://${brand.domain}/services): what we do and who it is for\n`
@@ -180,7 +182,7 @@ export const RULES = [
         '@type': 'Organization',
         name: brand.name,
         url: `https://${brand.domain}`,
-        description: `${brand.name} provides ${brand.category}${brand.location ? ` in ${brand.location}` : ''}.`,
+        description: `${brand.name} provides ${categoryText(brand)}${brand.location ? ` in ${brand.location}` : ''}.`,
       }),
     }),
   },
@@ -200,7 +202,7 @@ export const RULES = [
         '@type': brand.location ? 'LocalBusiness' : 'Organization',
         name: brand.name,
         url: `https://${brand.domain}`,
-        description: `${brand.name} provides ${brand.category}${brand.location ? ` in ${brand.location}` : ''}.`,
+        description: `${brand.name} provides ${categoryText(brand)}${brand.location ? ` in ${brand.location}` : ''}.`,
         ...(brand.location ? {
           address: { '@type': 'PostalAddress', addressLocality: brand.location },
           telephone: '+1-000-000-0000',
@@ -233,7 +235,7 @@ export const RULES = [
         mainEntity: [
           {
             '@type': 'Question',
-            name: `How much does ${brand.category} cost?`,
+            name: `How much does ${categoryText(brand)} cost?`,
             acceptedAnswer: {
               '@type': 'Answer',
               text: 'State the actual number or range, in the first sentence, with what is included.',
@@ -241,7 +243,7 @@ export const RULES = [
           },
           {
             '@type': 'Question',
-            name: `How do I choose a provider for ${brand.category}?`,
+            name: `How do I choose a provider for ${categoryText(brand)}?`,
             acceptedAnswer: {
               '@type': 'Answer',
               text: 'Give three concrete criteria a buyer can check, not marketing adjectives.',
@@ -265,7 +267,7 @@ export const RULES = [
       snippet: jsonBlock({
         '@context': 'https://schema.org',
         '@type': 'Service',
-        name: brand.category,
+        name: categoryText(brand),
         provider: { '@type': 'Organization', name: brand.name },
         ...(brand.location ? { areaServed: brand.location } : {}),
         offers: {
@@ -288,8 +290,8 @@ export const RULES = [
         + 'with no H1, several H1s, or a flat wall of text get chunked badly or skipped entirely.',
       how: 'Give every page exactly one H1 stating the page topic, then break the body into H2 '
         + 'sections of roughly 150-300 words each. Never pick a heading level for its font size.',
-      snippet: `<h1>${titleCase(brand.category)}${brand.location ? ` in ${brand.location}` : ''}</h1>\n`
-        + `<h2>How much does ${brand.category} cost?</h2>\n`
+      snippet: `<h1>${titleCase(categoryText(brand))}${brand.location ? ` in ${brand.location}` : ''}</h1>\n`
+        + `<h2>How much does ${categoryText(brand)} cost?</h2>\n`
         + `<h2>How long does it take?</h2>\n`
         + `<h2>What is included?</h2>\n`
         + `<h2>How does ${brand.name} compare to the alternatives?</h2>`,
@@ -361,7 +363,7 @@ export const RULES = [
       how: 'Rewrite the opening of each key page so the first 40-60 words answer the page\'s core '
         + 'question outright, with a specific number in it. Put the brand story further down.',
       snippet: `<!-- Before -->\n<p>Welcome to ${brand.name}. For over 20 years we have been proudly serving our community with dedication and integrity.</p>\n\n`
-        + `<!-- After -->\n<p>${brand.name} provides ${brand.category}${brand.location ? ` across ${brand.location}` : ''}, `
+        + `<!-- After -->\n<p>${brand.name} provides ${categoryText(brand)}${brand.location ? ` across ${brand.location}` : ''}, `
         + `[one concrete differentiator with a number] and [second specific fact a buyer cares about]. `
         + `[Who it is for.]</p>`,
     }),
@@ -386,7 +388,7 @@ export const RULES = [
           + 'genuine comparisons and discount pages that read as sales copy. Use a real table with '
           + 'concrete criteria, and add ItemList schema.',
         snippet: `Suggested pages to publish:\n`
-          + `  /best-${slugify(brand.category)}${brand.location ? `-in-${slugify(brand.location)}` : ''}\n`
+          + `  /best-${slugify(categoryText(brand))}${brand.location ? `-in-${slugify(brand.location)}` : ''}\n`
           + rivals.slice(0, 3).map((r) => `  /${slugify(brand.name)}-vs-${slugify(r)}`).join('\n')
           + (rivals.length ? `\n  /${slugify(rivals[0])}-alternatives\n` : '\n')
           + `\nEach page needs: a one-paragraph verdict up top, a comparison table with 5-7 concrete\n`
@@ -443,7 +445,7 @@ export const RULES = [
         + 'stand behind: volumes handled, response or delivery times, years in operation, '
         + 'satisfaction rates, price ranges, benchmark results. Cite the source or the period the '
         + 'figure covers.',
-      snippet: `Before: "${brand.name} offers fast, reliable ${brand.category} at competitive prices."\n\n`
+      snippet: `Before: "${brand.name} offers fast, reliable ${categoryText(brand)} at competitive prices."\n\n`
         + `After:  "${brand.name} handles [N] [units] per [period] with a [figure] [metric],\n`
         + `         at [price] - roughly [N]% below the category average as of ${new Date().getFullYear()}."\n\n`
         + `Replace each bracket with a number you can defend. One defensible figure beats\n`
@@ -485,9 +487,9 @@ export const RULES = [
         + 'lost recall.',
       how: 'Make the homepage title, meta description and first paragraph each contain the brand '
         + 'name, the category in the words buyers use, and the market you serve.',
-      snippet: `<title>${brand.name} - ${titleCase(brand.category)}${brand.location ? ` in ${brand.location}` : ''}</title>\n`
-        + `<meta name="description" content="${brand.name} provides ${brand.category}${brand.location ? ` in ${brand.location}` : ''}. [One concrete differentiator with a number.]" />\n`
-        + `<h1>${titleCase(brand.category)}${brand.location ? ` in ${brand.location}` : ''}</h1>`,
+      snippet: `<title>${brand.name} - ${titleCase(categoryText(brand))}${brand.location ? ` in ${brand.location}` : ''}</title>\n`
+        + `<meta name="description" content="${brand.name} provides ${categoryText(brand)}${brand.location ? ` in ${brand.location}` : ''}. [One concrete differentiator with a number.]" />\n`
+        + `<h1>${titleCase(categoryText(brand))}${brand.location ? ` in ${brand.location}` : ''}</h1>`,
     }),
   },
 

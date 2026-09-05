@@ -13,6 +13,7 @@
  */
 import { okAnswer } from './base.js';
 import { seededUnit } from '../util/id.js';
+import { categoryText } from '../config.js';
 
 /** Generic third-party sources an assistant tends to lean on. */
 const GENERIC_SOURCES = [
@@ -83,7 +84,7 @@ export const engine = {
  * @param {(k:string)=>number} seed
  */
 function compose(prompt, brand, ranked, seed) {
-  const cat = brand.category;
+  const cat = categoryText(brand);
   const loc = brand.location ? ` in ${brand.location}` : '';
   const openers = [
     `Here are the options I would look at for ${cat}${loc}, based on what people consistently report:`,

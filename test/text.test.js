@@ -88,3 +88,42 @@ test('a dotted brand name is still classified from its full sentence', () => {
     { name: 'Node.js', domain: 'nodejs.org' });
   assert.equal(m.role, 'recommended');
 });
+
+test('a per-language category never leaks as [object Object]', async () => {
+  const { categoryText, validateBrand } = await import('../src/config.js');
+  const brand = validateBrand({
+    name: 'Bergmann', domain: 'bergmann.ch',
+    category: { de: 'Notfall-Sanitärdienst', en: 'emergency plumbing' },
+    languages: ['de', 'en'],
+  });
+  assert.equal(categoryText(brand), 'Notfall-Sanitärdienst', 'primary language wins');
+  assert.equal(categoryText({ ...brand, languages: ['en'] }), 'emergency plumbing');
+  // A plain string profile still works unchanged.
+  assert.equal(categoryText({ category: 'CRM software', languages: ['en'] }), 'CRM software');
+});
+
+test('multilingual prompts use each language own wording', async () => {
+  const { generatePrompts } = await import('../src/prompts/generator.js');
+  const { validateBrand } = await import('../src/config.js');
+  const brand = validateBrand({
+    name: 'Bergmann', domain: 'bergmann.ch', location: 'Zürich',
+    category: { de: 'Notfall-Sanitärdienst', fr: "plomberie d'urgence" },
+    languages: ['de', 'fr'],
+  });
+  const prompts = generatePrompts(brand, { limit: 10 });
+  const de = prompts.filter((p) => p.lang === 'de');
+  const fr = prompts.filter((p) => p.lang === 'fr');
+  assert.ok(de.length > 0 && fr.length > 0, 'both languages are represented');
+  assert.ok(de.every((p) => !p.text.includes("plomberie")), 'no French wording in German prompts');
+  assert.ok(fr.every((p) => !p.text.includes('Notfall')), 'no German wording in French prompts');
+  assert.ok(prompts.every((p) => !p.text.includes('{')), 'no unfilled placeholders');
+});
+
+test('a language with no template is ignored rather than emitting blanks', async () => {
+  const { generatePrompts } = await import('../src/prompts/generator.js');
+  const prompts = generatePrompts({
+    name: 'X', domain: 'x.ch', category: 'widgets', languages: ['zz'], competitors: [],
+  }, { limit: 5 });
+  assert.ok(prompts.length > 0, 'falls back rather than producing nothing');
+  assert.ok(prompts.every((p) => !p.text.includes('{')));
+});

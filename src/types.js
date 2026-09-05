@@ -15,9 +15,11 @@
  * @property {string} name           Canonical brand name, e.g. "Northwind Plumbing".
  * @property {string} domain         Primary domain, e.g. "northwindplumbing.com".
  * @property {string[]} [aliases]    Alternate names the brand is known by.
- * @property {string} category       What the brand sells, e.g. "emergency plumbing services".
+ * @property {string|Record<string,string>} category  What the brand sells. A plain string,
+ *   or a per-language map so each language is prompted in its own wording.
+ * @property {string[]} [languages]   Languages to audit, e.g. ["de","fr","en"].
  * @property {string} [location]     Geographic market, e.g. "Austin, TX". Enables local prompt sets.
- * @property {string} [audience]     Buyer description, e.g. "homeowners with burst pipes".
+ * @property {string|Record<string,string>} [audience]  Buyer description; also per-language.
  * @property {Competitor[]} [competitors]
  * @property {string[]} [extraPrompts]   Custom prompts appended to the generated set.
  * @property {string[]} [keyPages]       Additional URLs to crawl beyond discovery.
@@ -43,6 +45,7 @@
  * @property {string} id
  * @property {string} text            The question posed to the AI engine.
  * @property {PromptIntent} intent
+ * @property {string} [lang]          Language the prompt is written in.
  * @property {number} weight          Commercial value of the prompt (0..1).
  * @property {string} [note]
  */
@@ -85,6 +88,7 @@
  * @property {string} promptId
  * @property {string} promptText
  * @property {PromptIntent} intent
+ * @property {string} [lang]
  * @property {number} weight
  * @property {string} engine
  * @property {PromptStatus} status

@@ -9,6 +9,7 @@
  * @module prompts/generator
  */
 import { hashId } from '../util/id.js';
+import { TEMPLATES, LANGUAGES, fill } from './templates.js';
 
 /**
  * Relative commercial value of each intent class. Commercial-investigation
@@ -42,67 +43,59 @@ export const INTENT_LABELS = {
  */
 export function generatePrompts(brand, opts = {}) {
   const limit = opts.limit ?? 24;
-  const cat = brand.category;
-  const loc = brand.location;
-  const aud = brand.audience;
   const name = brand.name;
+  const loc = brand.location;
+  /**
+   * Resolve a field that may be a plain string or a per-language map, falling
+   * back through the operator's own language list before English.
+   * @param {any} value @param {string} lang
+   */
+  const forLang = (value, lang) => {
+    if (!value) return undefined;
+    if (typeof value === 'string') return value;
+    return value[lang] || value.en || Object.values(value).find(Boolean);
+  };
   const comps = (brand.competitors || []).map((c) => c.name);
 
-  /** @type {Array<[import('../types.js').PromptIntent, string]>} */
+  // Languages to audit. Swiss buyers prompt in their own language and the
+  // assistant returns a different shortlist per language, so a single-language
+  // audit measures a single-language market.
+  const langs = (Array.isArray(brand.languages) && brand.languages.length ? brand.languages : ['en'])
+    .filter((l) => TEMPLATES[l]);
+  if (!langs.length) langs.push('en');
+
+  /** @type {Array<[import('../types.js').PromptIntent, string, string]>} */
   const raw = [];
-  const add = (intent, text) => { if (text) raw.push([intent, text]); };
+  const add = (intent, text, lang) => { if (text) raw.push([intent, text, lang]); };
 
-  // --- Commercial investigation: the highest-value class. Research shows
-  // "best X" list prompts resolve to listicles ~100% of the time.
-  add('commercial_investigation', `What are the best options for ${cat} right now?`);
-  add('commercial_investigation', `Who are the top providers of ${cat}?`);
-  add('commercial_investigation', `I need ${cat}. What do you recommend and why?`);
-  if (aud) add('commercial_investigation', `What is the best ${cat} for ${aud}?`);
-  add('commercial_investigation', `Which companies are most trusted for ${cat}?`);
-  add('commercial_investigation', `Shortlist three providers of ${cat} and explain the trade-offs.`);
+  for (const lang of langs) {
+    const bank = TEMPLATES[lang];
+    const base = {
+      cat: forLang(brand.category, lang),
+      aud: forLang(brand.audience, lang),
+      loc,
+      brand: name,
+    };
 
-  // --- Local intent
-  if (loc) {
-    add('local', `Who offers the best ${cat} in ${loc}?`);
-    add('local', `I need ${cat} in ${loc} today. Who should I call?`);
-    add('local', `Which providers of ${cat} near ${loc} have the best reviews?`);
-    add('local', `Recommend a reliable company for ${cat} serving ${loc}.`);
+    for (const [intent, templates] of Object.entries(bank)) {
+      for (const tpl of templates) {
+        if (tpl.includes('{comp}')) {
+          // One prompt per named rival, capped so a long competitor list does
+          // not crowd out every other intent.
+          for (const comp of comps.slice(0, 3)) {
+            add(intent, fill(tpl, { ...base, comp }), lang);
+          }
+        } else {
+          add(intent, fill(tpl, base), lang);
+        }
+      }
+    }
   }
-
-  // --- Comparison
-  for (const comp of comps.slice(0, 3)) {
-    add('comparison', `${name} vs ${comp}: which is better and for whom?`);
-  }
-  if (comps.length >= 2) {
-    add('comparison', `Compare ${comps.slice(0, 3).join(', ')} and ${name} for ${cat}.`);
-  }
-  add('comparison', `How do the leading providers of ${cat} compare on quality and price?`);
-
-  // --- Alternatives
-  for (const comp of comps.slice(0, 2)) {
-    add('alternative', `What are the best alternatives to ${comp}?`);
-  }
-  add('alternative', `What should I use instead of the biggest name in ${cat}?`);
-
-  // --- Pricing
-  add('pricing', `How much does ${cat} typically cost?`);
-  add('pricing', `Which provider of ${cat} offers the best value for money?`);
-  add('pricing', `What is a fair price to pay for ${cat}${loc ? ` in ${loc}` : ''}?`);
-
-  // --- Problem / job-to-be-done
-  add('problem', `I am having trouble choosing a provider for ${cat}. How should I decide?`);
-  add('problem', `What should I look for when hiring for ${cat}?`);
-  add('problem', `What are the most common mistakes people make when buying ${cat}?`);
-
-  // --- Branded: the control group. Losing your own branded prompt is a red alert.
-  add('branded', `What is ${name} and what do they do?`);
-  add('branded', `Is ${name} any good? What do reviews say?`);
-  add('branded', `Who are ${name}'s main competitors?`);
 
   const seen = new Set();
   /** @type {import('../types.js').PromptSpec[]} */
   const specs = [];
-  const toSpec = ([intent, text], pinned = false) => {
+  const toSpec = ([intent, text, lang], pinned = false) => {
     const key = text.toLowerCase().replace(/\s+/g, ' ').trim();
     if (seen.has(key)) return null;
     seen.add(key);
@@ -110,6 +103,7 @@ export function generatePrompts(brand, opts = {}) {
       id: hashId(`${intent}|${key}`, 8),
       text,
       intent,
+      lang: lang || 'en',
       weight: INTENT_WEIGHTS[intent] ?? 0.5,
       ...(pinned ? { note: 'operator-supplied' } : {}),
     };
@@ -120,7 +114,7 @@ export function generatePrompts(brand, opts = {}) {
   /** @type {import('../types.js').PromptSpec[]} */
   const pinned = [];
   for (const text of brand.extraPrompts || []) {
-    const spec = toSpec(['commercial_investigation', text], true);
+    const spec = toSpec(['commercial_investigation', text, langs[0]], true);
     if (spec) pinned.push(spec);
   }
 
@@ -141,22 +135,28 @@ export function generatePrompts(brand, opts = {}) {
  */
 export function balance(specs, limit) {
   if (specs.length <= limit) return specs;
+  // Bucket by language and intent together: with several languages configured,
+  // bucketing on intent alone lets the first language fill every slot.
   /** @type {Map<string, import('../types.js').PromptSpec[]>} */
   const byIntent = new Map();
   for (const s of specs) {
-    if (!byIntent.has(s.intent)) byIntent.set(s.intent, []);
-    byIntent.get(s.intent).push(s);
+    const key = `${s.lang || 'en'}|${s.intent}`;
+    if (!byIntent.has(key)) byIntent.set(key, []);
+    byIntent.get(key).push(s);
   }
   // Visit intent classes in descending commercial value.
-  const order = [...byIntent.keys()].sort(
-    (a, b) => (INTENT_WEIGHTS[b] ?? 0) - (INTENT_WEIGHTS[a] ?? 0));
+  const order = [...byIntent.keys()].sort((a, b) => {
+    const ia = a.split('|')[1];
+    const ib = b.split('|')[1];
+    return (INTENT_WEIGHTS[ib] ?? 0) - (INTENT_WEIGHTS[ia] ?? 0);
+  });
   /** @type {import('../types.js').PromptSpec[]} */
   const out = [];
   let round = 0;
   while (out.length < limit) {
     let progressed = false;
-    for (const intent of order) {
-      const bucket = byIntent.get(intent);
+    for (const key of order) {
+      const bucket = byIntent.get(key);
       if (bucket && bucket[round]) {
         out.push(bucket[round]);
         progressed = true;

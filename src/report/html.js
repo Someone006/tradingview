@@ -11,6 +11,7 @@ import { PALETTE, STATUS_META, SEVERITY_META, resolveBranding, seqStep, scoreCol
 import { PILLAR_LABELS } from '../crawler/checks.js';
 import { roadmap } from '../recommend/engine.js';
 import { styles } from './styles.js';
+import { categoryText } from '../config.js';
 
 /** @param {any} s */
 export function esc(s) {
@@ -52,6 +53,7 @@ ${topBar(b)}
   ${scorecard(report)}
   ${vis.skipped ? '' : shareOfVoice(vis, brand)}
   ${vis.skipped ? '' : intentSection(vis)}
+  ${vis.skipped ? '' : languageSection(vis)}
   ${vis.skipped ? '' : gapSection(vis)}
   ${vis.skipped ? '' : stabilitySection(vis)}
   ${vis.skipped ? '' : citationSection(vis)}
@@ -90,7 +92,7 @@ function cover(report, brand, composite, date, b) {
     <div class="hero-copy">
       <h2>How often do AI assistants recommend you?</h2>
       <p>When a buyer asks ChatGPT, Claude, Perplexity or Gemini for
-      ${esc(brand.category)}${brand.location ? ` in ${esc(brand.location)}` : ''}, this is how
+      ${esc(categoryText(brand))}${brand.location ? ` in ${esc(brand.location)}` : ''}, this is how
       ${esc(brand.name)} performs &mdash; combining how well the site can actually be read by
       answer engines with how often the brand is named in their answers.</p>
       <dl class="hero-stats">
@@ -357,6 +359,35 @@ function intentSection(vis) {
       <th scope="row">${esc(r.label)}</th>
       <td class="barcell"><span class="track"><span class="fill" data-zero="${r.rate > 0 ? 1 : 0}" style="width:${(r.rate * 100).toFixed(1)}%;background:${seqStep(r.rate)}"></span></span></td>
       <td class="num">${pct(r.rate)}</td>
+      <td class="num">${r.total}</td>
+    </tr>`).join('\n')}
+    </tbody>
+  </table>
+</section>`;
+}
+
+/** Only rendered when more than one language was audited. */
+function languageSection(vis) {
+  const rows = vis.byLanguage || [];
+  if (rows.length < 2) return '';
+  const names = { en: 'English', de: 'German', fr: 'French', it: 'Italian' };
+  return `<section class="sec">
+  <h2>Visibility by language</h2>
+  <p class="lede">Buyers prompt in their own language, and assistants retrieve different sources
+  for each one. These are separate markets, not one number in translation &mdash; a brand can be
+  healthy in one language and invisible in another.</p>
+  <table class="bars">
+    <caption class="sr-only">Mention rate by prompt language</caption>
+    <thead><tr><th scope="col">Language</th><th scope="col">Mention rate</th>
+      <th scope="col" class="num">Named</th><th scope="col" class="num">Recommended</th>
+      <th scope="col" class="num">Prompts</th></tr></thead>
+    <tbody>
+    ${rows.map((r) => `<tr>
+      <th scope="row">${esc(names[r.lang] || r.lang)}</th>
+      <td class="barcell"><span class="track"><span class="fill" data-zero="${r.rate > 0 ? 1 : 0}"
+        style="width:${(r.rate * 100).toFixed(1)}%;background:${seqStep(r.rate)}"></span></span></td>
+      <td class="num">${pct(r.rate)}</td>
+      <td class="num">${r.recommended}</td>
       <td class="num">${r.total}</td>
     </tr>`).join('\n')}
     </tbody>

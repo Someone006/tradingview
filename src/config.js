@@ -79,8 +79,13 @@ export function validateBrand(input) {
   if (!input || typeof input !== 'object') throw new Error('Brand profile must be an object');
   if (!input.name || typeof input.name !== 'string') errors.push('"name" is required');
   if (!input.domain || typeof input.domain !== 'string') errors.push('"domain" is required');
-  if (!input.category || typeof input.category !== 'string') {
-    errors.push('"category" is required (what the brand sells, e.g. "project management software")');
+  const categoryIsMap = input.category && typeof input.category === 'object';
+  if (!input.category || (typeof input.category !== 'string' && !categoryIsMap)) {
+    errors.push('"category" is required (what the brand sells, e.g. "project management software", '
+      + 'or a per-language map like {"de": "...", "fr": "..."})');
+  }
+  if (categoryIsMap && !Object.values(input.category).some((v) => typeof v === 'string' && v.trim())) {
+    errors.push('"category" map must contain at least one non-empty language');
   }
   if (errors.length) throw new Error(`Invalid brand profile:\n  - ${errors.join('\n  - ')}`);
 
@@ -93,16 +98,58 @@ export function validateBrand(input) {
       aliases: Array.isArray(cmp.aliases) ? cmp.aliases.map(String) : [],
     }));
 
+  const langs = Array.isArray(input.languages) && input.languages.length
+    ? input.languages.map((l) => String(l).toLowerCase().trim()).filter(Boolean)
+    : (categoryIsMap ? Object.keys(input.category) : ['en']);
+
   return {
+    languages: langs,
     name: String(input.name).trim(),
     domain: String(input.domain).trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, ''),
     aliases: Array.isArray(input.aliases) ? input.aliases.map(String) : [],
-    category: String(input.category).trim(),
+    // Kept in whatever shape the operator supplied; the generator resolves
+    // per language so a French prompt does not carry German category wording.
+    category: categoryIsMap ? { ...input.category } : String(input.category).trim(),
     location: input.location ? String(input.location).trim() : undefined,
-    audience: input.audience ? String(input.audience).trim() : undefined,
+    audience: input.audience && typeof input.audience === 'object'
+      ? { ...input.audience }
+      : (input.audience ? String(input.audience).trim() : undefined),
     competitors,
     extraPrompts: Array.isArray(input.extraPrompts) ? input.extraPrompts.map(String) : [],
     keyPages: Array.isArray(input.keyPages) ? input.keyPages.map(String) : [],
     branding: input.branding && typeof input.branding === 'object' ? input.branding : {},
   };
+}
+
+/**
+ * Resolve a field that may be a plain string or a per-language map down to one
+ * display string. Reports, schema snippets and check copy all need a single
+ * human-readable value; without this a per-language map renders as
+ * "[object Object]" in client-facing output.
+ * @param {string|Record<string,string>|undefined} value
+ * @param {string} [preferred] Preferred language code.
+ * @returns {string}
+ */
+export function textOf(value, preferred = 'en') {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  return String(value[preferred] || value.en || Object.values(value).find(Boolean) || '');
+}
+
+/**
+ * The brand's category as a single display string, in its primary language.
+ * @param {import('./types.js').BrandProfile} brand
+ */
+export function categoryText(brand) {
+  const primary = (brand.languages && brand.languages[0]) || 'en';
+  return textOf(brand.category, primary);
+}
+
+/**
+ * The brand's audience as a single display string.
+ * @param {import('./types.js').BrandProfile} brand
+ */
+export function audienceText(brand) {
+  const primary = (brand.languages && brand.languages[0]) || 'en';
+  return textOf(brand.audience, primary);
 }

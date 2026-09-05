@@ -231,6 +231,32 @@ surrounding sentence, and whether your own domain was cited.
 
 Grades: A ≥ 85%, B ≥ 70%, C ≥ 55%, D ≥ 40%, F below.
 
+### Multilingual auditing
+
+Switzerland has four national languages, and buyers prompt in their own. Assistants retrieve
+different sources per language, so a brand can look healthy in English and be invisible in
+German. Those are separate markets, not one number in translation.
+
+Give the category in each language and list the languages to audit:
+
+```json
+{
+  "name": "Bergmann Sanitär",
+  "domain": "bergmann-sanitaer.ch",
+  "location": "Zürich",
+  "languages": ["de", "fr", "en"],
+  "category": {
+    "de": "Notfall-Sanitärdienst",
+    "fr": "service de plomberie d'urgence",
+    "en": "emergency plumbing services"
+  }
+}
+```
+
+Prompt sets are generated natively per language (German, French, Italian, English) rather than
+translated, balanced so no single language crowds out the others, and the report breaks
+visibility down by language. `brands/swiss-example.json` is a working profile.
+
 ### Getting a better measurement
 
 Assistant answers are non-deterministic: ask the same question twice and you can

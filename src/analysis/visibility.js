@@ -40,6 +40,7 @@ export function scoreAnswer(prompt, answer, brand) {
     promptId: prompt.id,
     promptText: prompt.text,
     intent: prompt.intent,
+    lang: prompt.lang || 'en',
     weight: prompt.weight,
     engine: answer.engine,
     status: answer.status,
@@ -191,6 +192,7 @@ export function summarise(outcomes, brand, opts = {}) {
     shareOfVoice: shareOfVoice(answered, brand),
     byIntent: byIntent(answered),
     byEngine: byEngine(answered),
+    byLanguage: byLanguage(answered),
     citationDomains: citationDomains(answered, brand),
     surfaces: analyseSurfaces(answered, brand),
     gaps: findGaps(answered),
@@ -241,6 +243,33 @@ function byIntent(answered) {
     score: round(v.total ? v.score / v.total : 0),
     rate: round(v.total ? v.mentions / v.total : 0),
   })).sort((a, b) => b.total - a.total);
+}
+
+/**
+ * Visibility per language. A brand can be healthy in English and invisible in
+ * German: the assistant retrieves different sources per language, so these are
+ * genuinely different markets rather than one number in translation.
+ * @param {import('../types.js').PromptOutcome[]} answered
+ */
+function byLanguage(answered) {
+  /** @type {Record<string, {lang:string,total:number,mentions:number,recommended:number,score:number,rate:number}>} */
+  const acc = {};
+  for (const o of answered) {
+    const k = o.lang || 'en';
+    if (!acc[k]) acc[k] = { lang: k, total: 0, mentions: 0, recommended: 0, score: 0, rate: 0 };
+    const a = acc[k];
+    a.total++;
+    if (o.brand.mentioned) a.mentions++;
+    if (o.brand.role === 'recommended') a.recommended++;
+    a.score += outcomeScore(o);
+  }
+  const rows = Object.values(acc).map((v) => ({
+    ...v,
+    score: round(v.total ? v.score / v.total : 0),
+    rate: round(v.total ? v.mentions / v.total : 0),
+  })).sort((a, b) => b.total - a.total);
+  // One language is not a finding worth a section.
+  return rows.length > 1 ? rows : [];
 }
 
 /** @param {import('../types.js').PromptOutcome[]} answered */

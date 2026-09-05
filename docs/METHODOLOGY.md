@@ -100,6 +100,16 @@ a red alert that the engines do not resolve you as an entity at all.
 The set is balanced round-robin across intents so a trimmed run keeps coverage rather than
 filling up with one class. Operator-supplied prompts are **pinned** and never trimmed.
 
+### Languages
+
+Prompts are written natively per language (`en`, `de`, `fr`, `it`) rather than machine
+translated, because a translated prompt is not the prompt a native speaker would type. The
+category and audience can be given per language so French prompts never carry German wording.
+
+Generation balances across language *and* intent together — bucketing on intent alone lets the
+first language fill every slot. Results are reported per language, since assistants retrieve
+different sources for each and the markets are genuinely separate.
+
 ### Mention role
 
 Each mention is classified from the sentence that contains it:

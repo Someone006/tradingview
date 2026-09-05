@@ -1,0 +1,28 @@
+{
+  "name": "Bergmann Sanitär",
+  "domain": "bergmann-sanitaer.ch",
+  "category": {
+    "de": "Notfall-Sanitärdienst",
+    "fr": "service de plomberie d'urgence",
+    "it": "servizio idraulico di emergenza",
+    "en": "emergency plumbing services"
+  },
+  "audience": {
+    "de": "Hauseigentümer mit Wasserschaden",
+    "fr": "propriétaires avec un dégât des eaux",
+    "en": "homeowners with water damage"
+  },
+  "location": "Zürich",
+  "languages": ["de", "fr", "en"],
+  "competitors": [
+    { "name": "AquaFix Zürich", "domain": "aquafix.ch" },
+    { "name": "Rohr Profi", "domain": "rohrprofi.ch" }
+  ],
+  "branding": {
+    "agencyName": "Ihre Agentur",
+    "accent": "#0b6e77",
+    "contactEmail": "hallo@ihre-agentur.ch",
+    "website": "ihre-agentur.ch",
+    "footerNote": "Erstellt von Ihre Agentur. Daten erhoben mit CiteBeam."
+  }
+}

@@ -11,6 +11,7 @@
 import * as H from '../util/html.js';
 import { auditAiAccess } from './robots.js';
 import { wordCount, isAnswerCapsule, normalise } from '../util/text.js';
+import { categoryText } from '../config.js';
 
 /** @typedef {import('../types.js').SiteSnapshot} SiteSnapshot */
 /** @typedef {import('../types.js').CheckResult} CheckResult */
@@ -564,7 +565,7 @@ export function checkEntityClarity(s, brand) {
   }
   const lead = normalise(`${home.title} ${home.description} ${H.leadCopy(home.html, 120)}`);
   const nameHit = normalise(brand.name).split(/\s+/).every((w) => w.length < 3 || lead.includes(w));
-  const catWords = normalise(brand.category).split(/\s+/).filter((w) => w.length > 3);
+  const catWords = normalise(categoryText(brand)).split(/\s+/).filter((w) => w.length > 3);
   const catHits = catWords.filter((w) => lead.includes(w)).length;
   const catRatio = catWords.length ? catHits / catWords.length : 1;
   const locHit = !brand.location || normalise(brand.location).split(/[\s,]+/)
