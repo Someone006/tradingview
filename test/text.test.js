@@ -127,3 +127,28 @@ test('a language with no template is ignored rather than emitting blanks', async
   assert.ok(prompts.length > 0, 'falls back rather than producing nothing');
   assert.ok(prompts.every((p) => !p.text.includes('{')));
 });
+
+test('all four mention roles are reachable, not just three', () => {
+  const brand = { name: 'Acme Plumbing' };
+  const roleOf = (text) => {
+    const m = findMentions(text, brand);
+    rankEntities({ b: m });
+    return m.role;
+  };
+  // An earlier version derived "listed" from rank, and since every mention
+  // gets a rank, "referenced" was a dead branch: the taxonomy advertised four
+  // outcomes and could only ever produce three.
+  assert.equal(roleOf('1. Acme Plumbing - fast response times.'), 'listed');
+  assert.equal(roleOf('Options include Acme Plumbing, Beta Co and Gamma Ltd.'), 'listed');
+  assert.equal(roleOf('Acme Plumbing has operated in the region for twenty years.'), 'referenced');
+  assert.equal(roleOf('Acme Plumbing is the best choice for most people.'), 'recommended');
+  assert.equal(roleOf('I would avoid Acme Plumbing.'), 'dismissed');
+});
+
+test('list context is detected from markers and series, not from rank', async () => {
+  const { inListContext } = await import('../src/util/text.js');
+  const bullet = '- Acme is available';
+  assert.equal(inListContext(bullet, bullet.indexOf('Acme')), true);
+  const prose = 'The council awarded the contract to Acme last spring.';
+  assert.equal(inListContext(prose, prose.indexOf('Acme')), false);
+});

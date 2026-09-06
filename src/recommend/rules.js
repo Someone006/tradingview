@@ -22,6 +22,8 @@ import { categoryText } from '../config.js';
  * @typedef {Object} Rule
  * @property {string} id
  * @property {string} title
+ * @property {(brand: import('../types.js').BrandProfile) => string} [titleFor]
+ *   Resolves the title per brand, where a fixed one would read as a template.
  * @property {string} pillar
  * @property {number} impact  1..5
  * @property {number} effort  1..5
@@ -188,7 +190,12 @@ export const RULES = [
   },
   {
     id: 'add-entity-schema',
-    title: 'Publish Organization / LocalBusiness schema with sameAs links',
+    // Resolved per brand: a software project told to add "LocalBusiness"
+    // schema reads as a generic template and costs the report its credibility.
+    title: 'Publish entity schema with sameAs links',
+    titleFor: (brand) => (brand.location
+      ? 'Publish LocalBusiness schema with sameAs links'
+      : 'Publish Organization schema with sameAs links'),
     pillar: 'structure',
     impact: 4,
     effort: 2,

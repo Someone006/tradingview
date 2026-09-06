@@ -74,6 +74,7 @@
  * @property {number} sentiment       -1..1 heuristic sentiment of surrounding context.
  * @property {MentionRole} role       What the mention does for the entity.
  * @property {string} [roleSentence]  The sentence the role was read from.
+ * @property {boolean} [roleInList]   Whether the mention sat inside an enumeration.
  * @property {string[]} snippets
  */
 

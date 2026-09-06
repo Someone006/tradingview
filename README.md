@@ -170,6 +170,8 @@ node bin/citebeam.js engines
 | `history <domain>` | Run history with scores over time |
 | `report <domain>` | Re-render a stored run in any format |
 | `engines` | Show engine and credential status |
+| `doctor` | Check this installation is ready to audit a client |
+| `privacy` | Data-protection operations (revFADP) |
 
 Key audit flags:
 
@@ -342,6 +344,8 @@ cents of API spend.
 
 Other docs:
 
+- **[docs/LAUNCH.md](docs/LAUNCH.md)** — the launch checklist: setup, per-client workflow, and
+  exactly which steps are yours versus the system's
 - **[docs/METHODOLOGY.md](docs/METHODOLOGY.md)** — every check, what it measures, why it matters
 - **[docs/SWITZERLAND.md](docs/SWITZERLAND.md)** — running this as a Swiss business: UWG outreach
   rules, revFADP duties and the commands that satisfy them, crawling, VAT and imprint

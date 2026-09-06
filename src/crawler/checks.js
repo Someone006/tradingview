@@ -253,7 +253,7 @@ export function checkEntitySchema(s) {
   const score = has ? (sameAs ? 1 : 0.65) : 0.1;
   return mk({
     id: 'entity-schema',
-    title: 'Organization / LocalBusiness entity schema',
+    title: 'Entity schema (Organization or LocalBusiness)',
     pillar: 'structure',
     weight: 6,
     score,

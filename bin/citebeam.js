@@ -3,7 +3,7 @@
  * CiteBeam CLI.
  * @module bin/citebeam
  */
-import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs, list } from '../src/cli/args.js';
 import { loadEnv, loadBrand, validateBrand, engineAvailability, DEFAULTS } from '../src/config.js';
@@ -15,6 +15,7 @@ import { purgeExpired, exportSubject, eraseSubject, processingRegister, DEFAULT_
 import { log, c, setQuiet, bar, pct } from '../src/util/log.js';
 import { slug } from '../src/util/id.js';
 import { ALL_ENGINES } from '../src/engines/index.js';
+import { fetchText } from '../src/util/http.js';
 import { PILLAR_LABELS } from '../src/crawler/checks.js';
 
 loadEnv();
@@ -30,6 +31,7 @@ const COMMANDS = {
   report: cmdReport,
   engines: cmdEngines,
   privacy: cmdPrivacy,
+  doctor: cmdDoctor,
   help: cmdHelp,
 };
 
@@ -266,6 +268,85 @@ async function cmdReport() {
 }
 
 /**
+ * Preflight check. Answers one question before a paying client is involved:
+ * is this installation actually able to produce a report right now, and which
+ * parts will be missing if it is not.
+ */
+async function cmdDoctor() {
+  const checks = [];
+  const add = (ok, label, detail) => checks.push({ ok, label, detail });
+
+  const major = Number(process.versions.node.split('.')[0]);
+  add(major >= 20, `Node.js ${process.versions.node}`,
+    major >= 20 ? 'supported' : 'CiteBeam needs Node 20 or newer');
+
+  add(typeof fetch === 'function', 'fetch available',
+    typeof fetch === 'function' ? 'built in' : 'missing - upgrade Node');
+
+  const creds = engineAvailability();
+  const ready = creds.filter((e) => e.ready);
+  add(true, `AI providers configured: ${ready.length} of ${creds.length}`,
+    ready.length
+      ? ready.map((e) => e.id).join(', ')
+      : 'none - site audits work fully; answer measurement will be simulated');
+
+  // Can we actually reach the outside world? Without this nothing works.
+  let net = false;
+  let netDetail = '';
+  try {
+    const res = await fetchText('https://nodejs.org/robots.txt', { timeout: 8000, retries: 0 });
+    net = res.status > 0;
+    netDetail = `reachable (HTTP ${res.status})`;
+  } catch (err) {
+    netDetail = `no outbound access: ${err instanceof Error ? err.message : err}`;
+  }
+  add(net, 'Outbound network', netDetail);
+
+  const store = new Store(flags.data || DEFAULTS.dataDir);
+  let writable = false;
+  try {
+    const probe = path.join(store.dir, '.write-probe');
+    writeFileSync(probe, 'ok');
+    rmSync(probe, { force: true });
+    writable = true;
+  } catch (err) {
+    /* reported below */
+  }
+  add(writable, 'Data directory writable', store.dir);
+
+  const controller = !!process.env.CITEBEAM_CONTROLLER;
+  add(controller, 'Data controller named (revFADP)',
+    controller
+      ? String(process.env.CITEBEAM_CONTROLLER).slice(0, 60)
+      : 'CITEBEAM_CONTROLLER not set - required before you process client data');
+
+  log.blank();
+  log.info(c.bold('  CiteBeam preflight'));
+  log.blank();
+  for (const ch of checks) {
+    const mark = ch.ok ? c.green('ok  ') : c.yellow('warn');
+    log.info(`   ${mark} ${ch.label.padEnd(38)} ${c.dim(ch.detail)}`);
+  }
+  log.blank();
+
+  const blocking = checks.filter((ch) => !ch.ok
+    && !/providers configured|controller named/i.test(ch.label));
+  if (blocking.length) {
+    log.error(`${blocking.length} blocking issue(s). Fix these before auditing a client.`);
+    process.exitCode = 1;
+  } else {
+    log.ok('Ready to run an audit.');
+    if (!ready.length) {
+      log.info(c.dim('   Add an API key for live answer measurement; the site audit '
+        + 'is already fully functional.'));
+    }
+    if (!controller) {
+      log.info(c.dim('   Set CITEBEAM_CONTROLLER before handling client data.'));
+    }
+  }
+}
+
+/**
  * Data-protection operations. Grouped under one command so the whole surface
  * is discoverable when someone is answering a data-subject request under time
  * pressure.
@@ -382,6 +463,7 @@ ${c.bold('COMMANDS')}
   report        Re-render a stored run
   engines       Show engine and credential status
   privacy       Data-protection operations (see below)
+  doctor        Check this installation is ready to audit a client
   help          Show this message
 
 ${c.bold('PRIVACY')} ${c.dim('(Swiss revFADP support)')}

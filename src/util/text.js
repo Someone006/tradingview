@@ -70,6 +70,49 @@ const FOIL = [
 ];
 
 /**
+ * Whether a mention sits inside an enumeration rather than running prose.
+ *
+ * This is the difference between "listed" and merely "referenced": an
+ * assistant putting you in a shortlist has done something for you, while
+ * naming you in passing has not. Rank alone cannot tell them apart, because
+ * every mention gets a rank by order of appearance.
+ *
+ * @param {string} body @param {number} idx
+ * @returns {boolean}
+ */
+export function inListContext(body, idx) {
+  const text = String(body || '');
+  // The line the mention sits on, which is where list markers live.
+  const lineStart = text.lastIndexOf('\n', Math.max(0, idx - 1)) + 1;
+  const lineEnd = text.indexOf('\n', idx);
+  const line = text.slice(lineStart, lineEnd === -1 ? text.length : lineEnd);
+
+  // "1. Acme", "2) Acme", "- Acme", "* Acme", "• Acme"
+  if (/^\s*(\d{1,2}\s*[.)]|[-*\u2022])\s+/.test(line)) return true;
+
+  const sentence = sentenceAt(text, idx);
+  const lower = sentence.toLowerCase();
+
+  // An enumerating lead-in makes what follows a shortlist even with no commas:
+  // "Options include Acme and Beta" is two items, not passing prose.
+  const LEAD_IN = [
+    'include', 'includes', 'including', 'such as', 'options are', 'options for',
+    'consider', 'choices', 'candidates', 'alternatives are', 'shortlist',
+    'gehören', 'zählen zu', 'infrage kommen', 'zum beispiel', 'unter anderem', 'anbieter sind',
+    'parmi', 'notamment', 'par exemple', 'tra cui', 'ad esempio',
+  ];
+  if (LEAD_IN.some((w) => lower.includes(w))) return true;
+
+  // A comma series with an enumerating connective, in any supported language.
+  const commas = (sentence.match(/,/g) || []).length;
+  const CONNECTIVE = /\b(and|or|then|plus|followed by|und|oder|dann|sowie|et|ou|puis|ensuite|e|o|poi)\b/i;
+  if (commas >= 1 && CONNECTIVE.test(sentence)) return true;
+  if (commas >= 2) return true;
+
+  return false;
+}
+
+/**
  * Classify what a mention is actually doing for the brand.
  *
  * The market's standing complaint about visibility tools is that they measure
@@ -78,7 +121,7 @@ const FOIL = [
  * you. Those are opposite commercial outcomes and must not share a score.
  *
  * @param {string} sentence The sentence containing the mention.
- * @param {{rank?:number, name?:string}} [ctx]
+ * @param {{rank?:number, name?:string, inList?:boolean}} [ctx]
  * @returns {'recommended'|'listed'|'referenced'|'dismissed'}
  */
 export function classifyRole(sentence, ctx = {}) {
@@ -98,10 +141,9 @@ export function classifyRole(sentence, ctx = {}) {
 
   if (ENDORSE.some((w) => t.includes(w))) return 'recommended';
 
-  // A top-three slot in a ranked shortlist is an implicit recommendation even
-  // when the prose around it is neutral.
-  if (ctx.rank && ctx.rank <= 3) return 'listed';
-  return ctx.rank ? 'listed' : 'referenced';
+  // Inside a shortlist the assistant has actively put the brand forward.
+  // In running prose it has only named it, which is a weaker outcome.
+  return ctx.inList ? 'listed' : 'referenced';
 }
 
 /**
@@ -119,6 +161,8 @@ export function findMentions(text, entity) {
   const snippets = [];
   /** @type {string[]} */
   const sentences = [];
+  /** @type {boolean[]} */
+  const listContext = [];
   let sentimentTotal = 0;
   let sentimentSamples = 0;
   const seen = new Set();
@@ -140,6 +184,7 @@ export function findMentions(text, entity) {
       // bleeds a competitor's praise onto the brand and vice versa.
       const sentence = sentenceAt(body, idx);
       sentences.push(sentence);
+      listContext.push(inListContext(body, idx));
       sentimentTotal += scoreSentiment(sentence);
       sentimentSamples++;
       if (re.lastIndex === m.index) re.lastIndex++;
@@ -154,8 +199,11 @@ export function findMentions(text, entity) {
     count: positions.length,
     sentiment: sentimentSamples ? clamp(sentimentTotal / sentimentSamples, -1, 1) : 0,
     // Provisional: rank is unknown here, so rankEntities() refines it.
-    role: sentences.length ? classifyRole(sentences[0], { name: entity.name }) : 'referenced',
+    role: sentences.length
+      ? classifyRole(sentences[0], { name: entity.name, inList: listContext[0] })
+      : 'referenced',
     roleSentence: sentences[0] || '',
+    roleInList: listContext[0] || false,
     snippets,
   };
 }
@@ -216,7 +264,9 @@ export function rankEntities(results) {
     // Re-classify now that rank is known: a neutral sentence in a top-three
     // slot reads as a listing, not a passing reference.
     if (r.role !== 'recommended' && r.role !== 'dismissed') {
-      r.role = classifyRole(r.roleSentence || '', { rank: r.rank });
+      r.role = classifyRole(r.roleSentence || '', {
+        rank: r.rank, inList: r.roleInList,
+      });
     }
   });
   return results;

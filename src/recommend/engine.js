@@ -250,7 +250,7 @@ function buildRecommendation(rule, check, ctx) {
   const severity = severityFor(check.score, rule.impact);
   return {
     id: rule.id,
-    title: rule.title,
+    title: typeof rule.titleFor === 'function' ? rule.titleFor(ctx.brand) : rule.title,
     why: body.why,
     how: body.how,
     snippet: body.snippet,
